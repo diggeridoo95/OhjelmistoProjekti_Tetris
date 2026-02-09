@@ -1,4 +1,5 @@
 import pygame, sys
+from colors import Colors
 from game import Game
 
 screen = pygame.display.set_mode((500, 620))
@@ -14,7 +15,7 @@ while True:
 			pygame.quit()
 			sys.exit()
 
-	screen.fill((0, 0, 0))
+	screen.fill(Colors.dark_blue)
 	game.draw(screen)
 	pygame.display.update()
 	clock.tick(60)

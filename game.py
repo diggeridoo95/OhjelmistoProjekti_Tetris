@@ -1,10 +1,10 @@
-
+from grid import Grid
 from blocks import *
 import random
 
 class Game:
 	def __init__(self):
-
+		self.grid = Grid()
 		self.blocks = [IBlock(), JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
 		self.current_block = self.get_random_block()
 	
@@ -12,4 +12,5 @@ class Game:
 		return random.choice(self.blocks)
 
 	def draw(self, screen):
+		self.grid.draw(screen)
 		self.current_block.draw(screen, 11, 11)
