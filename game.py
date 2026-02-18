@@ -36,6 +36,7 @@ class Game:
 			self.grid.grid[position.row][position.column] = self.current_block.id
 		self.current_block = self.next_block
 		self.next_block = self.get_random_block()
+		self.grid.clear_full_rows()
 	
 	def reset(self):
 		self.grid.reset()
