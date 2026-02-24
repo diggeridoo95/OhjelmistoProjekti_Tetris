@@ -5,7 +5,7 @@ class StartScreen:
 	def __init__(self, screen_width, screen_height):
 		self.screen_width = screen_width
 		self.screen_height = screen_height
-		self.title_font = pygame.font.Font(None, 60)
+		self.title_font = pygame.font.Font(None, 50)
 		self.button_font = pygame.font.Font(None, 40)
 		self.game_started = False
 	
@@ -18,7 +18,7 @@ class StartScreen:
 		screen.fill(Colors.dark_blue)
 		
 		# Title
-		title_surface = self.title_font.render("TETRIS", True, Colors.cyan)
+		title_surface = self.title_font.render("TETRIS OWERWHELMED", True, Colors.cyan)
 		title_rect = title_surface.get_rect(center=(self.screen_width // 2, 100))
 		screen.blit(title_surface, title_rect)
 		
