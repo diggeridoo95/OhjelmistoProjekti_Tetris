@@ -41,6 +41,16 @@ class Game:
 			self.current_block.move(-1, 0)
 			self.lock_block()
 
+	def hard_drop(self):
+		while self.block_inside() and self.block_fits():
+			self.current_block.move(1, 0)
+			if not self.block_inside() or not self.block_fits():
+				self.current_block.move(-1, 0)
+				self.lock_block()
+				break
+		
+		self.update_score(0, 2)
+
 	def lock_block(self):
 		tiles = self.current_block.get_cell_positions()
 		for position in tiles:
