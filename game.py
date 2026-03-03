@@ -92,3 +92,10 @@ class Game:
 	def draw(self, screen):
 		self.grid.draw(screen)
 		self.current_block.draw(screen, 11, 11)
+
+		if self.next_block.id == 3:
+			self.next_block.draw(screen, 250, 260)
+		elif self.next_block.id == 4:
+			self.next_block.draw(screen, 250, 245)
+		else:
+			self.next_block.draw(screen, 265, 240)
