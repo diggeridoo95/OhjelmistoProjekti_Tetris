@@ -68,6 +68,34 @@ class Grid:
         for row in range(self.num_rows):
             for column in range(self.num_cols):
                 self.grid[row][column] = 0
+    
+    def bomb_explosion(self, center_row, center_col):
+        """
+        Trigger bomb explosion at the given position.
+        Removes blocks in a bomb-like pattern (circular/cross pattern).
+        
+        Args:
+            center_row: Row position of explosion center
+            center_col: Column position of explosion center
+        """
+        # Define bomb explosion pattern (relative positions from center)
+        explosion_pattern = [
+            (0, 0),      # center
+            (-1, 0), (1, 0), (0, -1), (0, 1),      # adjacent cells (cross)
+            (-1, -1), (-1, 1), (1, -1), (1, 1),    # diagonals
+            (-2, 0), (2, 0), (0, -2), (0, 2),      # extended cross
+        ]
+        
+        # Remove blocks in explosion area
+        for row_offset, col_offset in explosion_pattern:
+            target_row = center_row + row_offset
+            target_col = center_col + col_offset
+            
+            if self.is_inside(target_row, target_col):
+                self.grid[target_row][target_col] = 0
+        
+        # Apply gravity and clear completed rows
+        self.clear_full_rows()
         
     def draw(self, screen):
         for row in range(self.num_rows):

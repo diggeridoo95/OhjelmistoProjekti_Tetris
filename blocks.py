@@ -74,3 +74,12 @@ class ZBlock(Block):
             3: [Position(0, 1), Position(1, 0), Position(1, 1), Position(2, 0)]
         }
         self.move(0, 3)
+
+class BombBlock(Block):
+    """Single block used for bomb ability - explodes on collision"""
+    def __init__(self):
+        super().__init__(id = 8)
+        self.cells = {
+            0: [Position(0, 0)]  # Single cell block, no rotation variations
+        }
+        self.move(0, 4)  # Spawn in center-ish position
