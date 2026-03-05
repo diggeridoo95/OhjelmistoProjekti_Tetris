@@ -35,6 +35,10 @@ class Grid:
             return False
     
     def is_empty(self, row, column):
+        if row < 0:
+            return True
+        if row >= self.num_rows or column < 0 or column >= self.num_cols:
+            return False
         if self.grid[row][column] == 0:
             return True
         return False

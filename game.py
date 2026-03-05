@@ -6,7 +6,7 @@ import random
 class Game:
 	def __init__(self):
 		self.grid = Grid()
-		self.blocks = [IBlock() ]#, JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
+		self.blocks = [IBlock(), JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
 		self.current_block = self.get_random_block()
 		self.next_block = self.get_random_block()
 		self.game_over = False
@@ -32,7 +32,7 @@ class Game:
 	
 	def get_random_block(self):
 		if len(self.blocks) == 0:
-			self.blocks = [IBlock()] #, JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
+			self.blocks = [IBlock(), JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
 		block = random.choice(self.blocks)
 		self.blocks.remove(block)
 		return block
@@ -140,7 +140,8 @@ class Game:
 	
 	def draw(self, screen):
 		self.grid.draw(screen)
-		self.current_block.draw(screen, 11, 11)
+		if self.game_over == False:
+			self.current_block.draw(screen, 11, 11)
 
 		if self.next_block.id == 3:
 			self.next_block.draw(screen, 250, 260)
