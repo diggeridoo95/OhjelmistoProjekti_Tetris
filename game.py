@@ -2,12 +2,13 @@ from grid import Grid
 from blocks import *
 from abilities import BombAbility
 import random
+import pygame
 
 class Game:
 	def __init__(self):
 		self.grid = Grid()
 		self.blocks = [IBlock(), JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
-		self.current_block = self.get_random_block()
+		self.current_block = self.spawn_current_block(self.get_random_block())
 		self.next_block = self.get_random_block()
 		self.game_over = False
 		self.score = 0
@@ -35,6 +36,10 @@ class Game:
 			self.blocks = [IBlock(), JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
 		block = random.choice(self.blocks)
 		self.blocks.remove(block)
+		return block
+
+	def spawn_current_block(self, block):
+		block.move(-1, 0)
 		return block
 	
 	def move_left(self):
@@ -69,19 +74,21 @@ class Game:
 			# Get the center position of the bomb (should be single cell)
 			if tiles:
 				bomb_pos = tiles[0]
-				self.grid.bomb_explosion(bomb_pos.row, bomb_pos.column)
+				if self.grid.is_inside(bomb_pos.row, bomb_pos.column):
+					self.grid.bomb_explosion(bomb_pos.row, bomb_pos.column)
 			self.has_bomb = False
 			self.bomb_active = False
 		else:
 			# Normal block locking
 			for position in tiles:
-				self.grid.grid[position.row][position.column] = self.current_block.id
+				if self.grid.is_inside(position.row, position.column):
+					self.grid.grid[position.row][position.column] = self.current_block.id
 		
 		# Set position for potential bomb explosion tracking
 		if tiles:
 			self.last_block_position = tiles[0]
 		
-		self.current_block = self.next_block
+		self.current_block = self.spawn_current_block(self.next_block)
 		self.next_block = self.get_next_block()
 		rows_cleared = self.grid.clear_full_rows()
 		
@@ -111,7 +118,7 @@ class Game:
 	def reset(self):
 		self.grid.reset()
 		self.blocks = [IBlock(), JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
-		self.current_block = self.get_random_block()
+		self.current_block = self.spawn_current_block(self.get_random_block())
 		self.next_block = self.get_random_block()
 		self.score = 0
 		self.time_left = 120
@@ -134,14 +141,16 @@ class Game:
 	def block_inside(self):
 		tiles = self.current_block.get_cell_positions()
 		for tile in tiles:
-			if self.grid.is_inside(tile.row, tile.column) == False:
+			if tile.column < 0 or tile.column >= self.grid.num_cols:
+				return False
+			if tile.row >= self.grid.num_rows:
 				return False
 		return True
 	
 	def draw(self, screen):
 		self.grid.draw(screen)
 		if self.game_over == False:
-			self.current_block.draw(screen, 11, 11)
+			self.draw_current_block_clipped(screen, 11, 11)
 
 		if self.next_block.id == 3:
 			self.next_block.draw(screen, 250, 260)
@@ -151,6 +160,17 @@ class Game:
 			self.next_block.draw(screen, 295, 290)
 		else:
 			self.next_block.draw(screen, 265, 240)
+
+	def draw_current_block_clipped(self, screen, offset_x, offset_y):
+		for tile in self.current_block.get_cell_positions():
+			if self.grid.is_inside(tile.row, tile.column):
+				tile_rect = pygame.Rect(
+					offset_x + tile.column * self.current_block.cell_size,
+					offset_y + tile.row * self.current_block.cell_size,
+					self.current_block.cell_size - 1,
+					self.current_block.cell_size - 1,
+				)
+				pygame.draw.rect(screen, self.current_block.colors[self.current_block.id], tile_rect)
 
 	def countdown(self):
 		if self.game_over:
