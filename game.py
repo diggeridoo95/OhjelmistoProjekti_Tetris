@@ -1,8 +1,10 @@
 from grid import Grid
 from blocks import *
 from abilities import BombAbility
+from levels import get_levels
 import random
 import pygame
+
 
 class Game:
 	def __init__(self):
@@ -11,14 +13,84 @@ class Game:
 		self.current_block = self.spawn_current_block(self.get_random_block())
 		self.next_block = self.get_random_block()
 		self.game_over = False
+		self.game_won = False
 		self.score = 0
-		self.time_left = 120
+		self.levels = get_levels()
+		self.current_level_index = 0
+		self.current_level = self.levels[0]
+		self.level_start_score = 0
+		self.time_left = self.current_level.time_limit_seconds
+		self.drop_interval_ms = self.current_level.drop_interval_ms
+		self.speed_changed = False
+		self.level_transition_duration_ms = 1800
+		self.level_transition_ms_left = 0
+		self.pending_level_index = None
+		
 		
 		# Ability system
 		self.bomb_ability = BombAbility()
 		self.bomb_active = False  # Flag indicating bomb is active for next block
 		self.has_bomb = False  # Flag indicating player owns bomb ability
 		self.last_block_position = None  # Track position of last locked block for bomb explosion
+
+	def get_level_score(self):
+		return max(0, self.score - self.level_start_score)
+
+	def is_level_transitioning(self):
+		return self.pending_level_index is not None
+
+	def start_level_transition(self, next_level_index):
+		self.pending_level_index = next_level_index
+		self.level_transition_ms_left = self.level_transition_duration_ms
+
+	def apply_level(self, level_index):
+		# Preserve unused abilities when moving to next level.
+		preserved_has_bomb = self.has_bomb
+		preserved_bomb_active = self.bomb_active
+
+		self.current_level_index = level_index
+		self.current_level = self.levels[self.current_level_index]
+		self.level_start_score = self.score
+		self.time_left = self.current_level.time_limit_seconds
+		self.drop_interval_ms = self.current_level.drop_interval_ms
+		self.speed_changed = True
+
+		self.grid.reset()
+		self.blocks = [IBlock(), JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
+		self.current_block = self.spawn_current_block(self.get_random_block())
+		self.next_block = self.get_next_block()
+
+		self.has_bomb = preserved_has_bomb
+		self.bomb_active = preserved_bomb_active
+
+		for event in self.current_level.events:
+			event.on_level_start(self)
+
+	def update_level_transition(self, elapsed_ms):
+		if self.is_level_transitioning() == False or self.game_over:
+			return
+
+		self.level_transition_ms_left -= elapsed_ms
+		if self.level_transition_ms_left <= 0:
+			next_level_index = self.pending_level_index
+			self.pending_level_index = None
+			self.level_transition_ms_left = 0
+			self.apply_level(next_level_index)
+
+	def try_advance_level(self):
+		if self.game_over or self.is_level_transitioning():
+			return False
+
+		if self.get_level_score() < self.current_level.target_score:
+			return False
+
+		if self.current_level_index >= len(self.levels) - 1:
+			self.game_won = True
+			self.game_over = True
+			return True
+
+		self.start_level_transition(self.current_level_index + 1)
+		return True
 
 	def update_score(self, lines_cleared, move_down_points):
 		if lines_cleared == 1:
@@ -30,6 +102,7 @@ class Game:
 		elif lines_cleared == 4:
 			self.score += 1000
 		self.score += move_down_points
+		self.try_advance_level()
 	
 	def get_random_block(self):
 		if len(self.blocks) == 0:
@@ -120,11 +193,21 @@ class Game:
 		self.blocks = [IBlock(), JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
 		self.current_block = self.spawn_current_block(self.get_random_block())
 		self.next_block = self.get_random_block()
+		self.game_over = False
+		self.game_won = False
 		self.score = 0
-		self.time_left = 120
+		self.current_level_index = 0
+		self.current_level = self.levels[0]
+		self.level_start_score = 0
+		self.time_left = self.current_level.time_limit_seconds
+		self.drop_interval_ms = self.current_level.drop_interval_ms
+		self.speed_changed = True
+		self.pending_level_index = None
+		self.level_transition_ms_left = 0
 		self.bomb_active = False
 		self.has_bomb = False
 		self.last_block_position = None
+
 
 	def block_fits(self):
 		tiles = self.current_block.get_cell_positions()
@@ -173,14 +256,35 @@ class Game:
 				pygame.draw.rect(screen, self.current_block.colors[self.current_block.id], tile_rect)
 
 	def countdown(self):
-		if self.game_over:
+		if self.game_over or self.is_level_transitioning():
 			return
 		if self.time_left > 0:
 			self.time_left -= 1
 		if self.time_left <= 0:
 			self.time_left = 0
-			self.game_over = True
+			if self.try_advance_level() == False:
+				self.game_over = True
 
 	def get_time_text(self):
 		mins, secs = divmod(self.time_left, 60)
 		return f"{mins:02d}:{secs:02d}"
+	
+	def get_drop_interval(self):
+		return self.drop_interval_ms
+
+	def consume_speed_change_flag(self):
+		changed = self.speed_changed
+		self.speed_changed = False
+		return changed
+
+	def get_level_text(self):
+		return f"Level {self.current_level.number}"
+
+	def get_level_goal_text(self):
+		return f"{self.get_level_score()}/{self.current_level.target_score}"
+
+	def get_transition_text(self):
+		if self.is_level_transitioning() == False:
+			return ""
+		next_level_number = self.levels[self.pending_level_index].number
+		return f"Level {next_level_number}"
