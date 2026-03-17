@@ -27,6 +27,8 @@ class Game:
 		self.level_transition_ms_left = 0
 		self.pending_level_index = None
 		self.invisible_until_ms = 0
+		self.last_event_text = ""
+		self.last_event_timer = 0
 		
 		
 		# Ability system
@@ -34,6 +36,9 @@ class Game:
 		self.bomb_active = False  # Flag indicating bomb is active for next block
 		self.has_bomb = False  # Flag indicating player owns bomb ability
 		self.last_block_position = None  # Track position of last locked block for bomb explosion
+
+		#self.apply_level(1)  # Start at level 2 for testing purposes
+							#Can be adjusted for further testing
 
 	def get_level_score(self):
 		return max(0, self.score - self.level_start_score)
@@ -67,6 +72,20 @@ class Game:
 
 		for event in self.current_level.events:
 			event.on_level_start(self)
+
+	def update_level_events(self):		#Update active level events
+
+		if self.game_over or self.is_level_transitioning():
+			return
+		
+		for event in self.current_level.events: 		#Call on_tick for events that have it
+			if hasattr(event, "on_tick"):
+				event.on_tick(self)
+		
+		if self.last_event_timer > 0:
+			self.last_event_timer -= 1
+		elif self.last_event_timer < 0:		#Safety check to prevent negative timer values
+			self.last_event_timer = 0
 
 	def update_level_transition(self, elapsed_ms):
 		if self.is_level_transitioning() == False or self.game_over:
