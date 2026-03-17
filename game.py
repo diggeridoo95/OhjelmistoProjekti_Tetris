@@ -2,6 +2,7 @@ from grid import Grid
 from blocks import *
 from abilities import BombAbility
 from levels import get_levels
+from colors import Colors
 import random
 import pygame
 
@@ -25,6 +26,7 @@ class Game:
 		self.level_transition_duration_ms = 1800
 		self.level_transition_ms_left = 0
 		self.pending_level_index = None
+		self.invisible_until_ms = 0
 		
 		
 		# Ability system
@@ -204,9 +206,16 @@ class Game:
 		self.speed_changed = True
 		self.pending_level_index = None
 		self.level_transition_ms_left = 0
+		self.invisible_until_ms = 0
 		self.bomb_active = False
 		self.has_bomb = False
 		self.last_block_position = None
+
+	def trigger_invisibility(self, duration_ms=1000):
+		self.invisible_until_ms = pygame.time.get_ticks() + max(0, duration_ms)
+
+	def is_invisible_active(self):
+		return pygame.time.get_ticks() < self.invisible_until_ms
 
 
 	def block_fits(self):
@@ -243,6 +252,15 @@ class Game:
 			self.next_block.draw(screen, 295, 290)
 		else:
 			self.next_block.draw(screen, 265, 240)
+
+		if self.is_invisible_active():
+			self.draw_invisibility_overlay(screen)
+
+	def draw_invisibility_overlay(self, screen):
+		playfield_rect = pygame.Rect(11, 11, self.grid.num_cols * self.grid.cell_size, self.grid.num_rows * self.grid.cell_size)
+		next_preview_rect = pygame.Rect(315, 185, 170, 180)
+		pygame.draw.rect(screen, Colors.dark_blue, playfield_rect)
+		pygame.draw.rect(screen, Colors.light_blue, next_preview_rect, 0, 10)
 
 	def draw_current_block_clipped(self, screen, offset_x, offset_y):
 		for tile in self.current_block.get_cell_positions():

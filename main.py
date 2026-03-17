@@ -70,6 +70,8 @@ while True:
 					game.hard_drop()
 				if event.key == pygame.K_a and game.game_over == False and game.is_level_transitioning() == False:
 					game.use_bomb_ability()
+				if event.key == pygame.K_1 and game.game_over == False and game.is_level_transitioning() == False:
+					game.trigger_invisibility(1000)
 			if event.type == GAME_UPDATE and game.game_over == False and game.is_level_transitioning() == False:
 				game.move_down()
 			if event.type == TIMER_UPDATE and game.game_over == False and game.is_level_transitioning() == False:
