@@ -1,4 +1,4 @@
-from events import GarbageRows
+from events import GarbageRows, MoleEvent
 from level import Level
 
 def get_levels() -> list[Level]:
@@ -14,7 +14,7 @@ def get_levels() -> list[Level]:
 			target_score=1100,
 			time_limit_seconds=110,
 			drop_interval_ms=180,
-			events=[GarbageRows(2)],
+			events=[GarbageRows(2), MoleEvent(trigger_chance=0.09)]  #much higher trigger chance for testing
 		),
 		Level(
 			number=3,
