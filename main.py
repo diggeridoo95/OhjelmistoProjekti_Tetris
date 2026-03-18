@@ -53,10 +53,11 @@ while True:
 			# Handle game events
 			if event.type == pygame.KEYDOWN:
 				if game.game_over == True:
-					# Return to main menu instead of resetting in place.
-					game_started = False
-					start_screen.game_started = False
-					game = None
+					# Return to main menu only when Enter is pressed.
+					if event.key == pygame.K_RETURN:
+						game_started = False
+						start_screen.game_started = False
+						game = None
 					continue
 				if event.key == pygame.K_LEFT and game.game_over == False and game.is_level_transitioning() == False:
 					game.move_left()
