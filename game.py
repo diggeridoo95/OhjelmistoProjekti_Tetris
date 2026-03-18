@@ -2,6 +2,7 @@ from grid import Grid
 from blocks import *
 from abilities import BombAbility
 from levels import get_levels
+from inversion import InversionController
 import random
 import pygame
 
@@ -11,12 +12,9 @@ class Game:
 		self.grid = Grid()
 		self.blocks = [IBlock(), JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
 		
-		# pelikentän peilauksen määritykset
-		self.inverted_gravity = False
-		self.invert_event_interval_seconds = 40  # Triggers every 40 seconds
-		self.invert_event_seconds_until_trigger = self.invert_event_interval_seconds
-		self.inverted_lock_target = 3  # Lasts for 3 locked blocks
-		self.inverted_blocks_remaining = 0
+		# pelikentän peilauksen määritykset 
+		#JOS HALUAT TESTATA ILMAN PEILAUSTA, ASETU TÄMÄN ARVOKSI 999
+		self.inversion = InversionController(interval_seconds=10, lock_target=3) 
 		
 		self.current_block = self.spawn_current_block(self.get_random_block())
 		self.next_block = self.get_random_block()
@@ -63,10 +61,8 @@ class Game:
 		self.drop_interval_ms = self.current_level.drop_interval_ms
 		self.speed_changed = True
 		
-		# Reset inverted gravity state when level changes
-		self.inverted_gravity = False
-		self.inverted_blocks_remaining = 0
-		self.invert_event_seconds_until_trigger = self.invert_event_interval_seconds
+		# Reset inversion event state when level changes
+		self.inversion.reset_state()
 
 		self.grid.reset()
 		self.blocks = [IBlock(), JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
@@ -124,55 +120,18 @@ class Game:
 		self.blocks.remove(block)
 		return block
 
-	# ===== Inverted Gravity Event Methods =====
-	def flip_grid_vertically(self):
-		"""Flip entire grid vertically - bottom row becomes top, top becomes bottom."""
-		flipped_grid = [[0 for _ in range(self.grid.num_cols)] for _ in range(self.grid.num_rows)]
-		for row in range(self.grid.num_rows):
-			for col in range(self.grid.num_cols):
-				flipped_row = self.grid.num_rows - 1 - row
-				flipped_grid[flipped_row][col] = self.grid.grid[row][col]
-		self.grid.grid = flipped_grid
-	
+	# ===== Inverted Gravity Event Delegation =====
 	def get_gravity_step(self):
-		"""Returns gravity direction: -1 (up/inverted) or 1 (down/normal)"""
-		return -1 if self.inverted_gravity else 1
-
-	def activate_inverted_gravity(self):
-		"""Activates inverted gravity mode - field flips upside down"""
-		if self.inverted_gravity:
-			return
-		self.inverted_gravity = True
-		self.inverted_blocks_remaining = self.inverted_lock_target
-		self.flip_grid_vertically()  # Flip all locked blocks immediately
-
-	def deactivate_inverted_gravity(self):
-		"""Deactivates inverted gravity after 3 blocks have locked"""
-		self.inverted_gravity = False
-		self.inverted_blocks_remaining = 0
-		self.invert_event_seconds_until_trigger = self.invert_event_interval_seconds
-		self.flip_grid_vertically()  # Flip back to normal orientation
+		"""Returns gravity direction from inversion controller."""
+		return self.inversion.get_gravity_step()
 
 	def update_inversion_event_timer(self):
-		"""Decrements 40-second timer. Triggers inversion when it reaches zero."""
-		if self.inverted_gravity:
-			return
-		self.invert_event_seconds_until_trigger -= 1
-		if self.invert_event_seconds_until_trigger <= 0:
-			self.activate_inverted_gravity()
+		"""Updates inversion event timer and activates event when needed."""
+		self.inversion.update_timer(self.grid)
 
 	def spawn_current_block(self, block):
-		"""Spawn block at top (normal) or bottom (inverted gravity) of field"""
-		if self.inverted_gravity:
-			# Inverted: spawn at bottom, move block to bottom-center
-			cells = block.get_cell_positions()
-			max_row = max(cell.row for cell in cells)
-			shift_rows = (self.grid.num_rows - 1) - max_row
-			block.move(shift_rows, 0)
-		else:
-			# Normal: spawn at top
-			block.move(-1, 0)
-		return block
+		"""Spawns a block using inversion-aware spawn rules."""
+		return self.inversion.spawn_block(block, self.grid)
 	
 	def move_left(self):
 		self.current_block.move(0, -1)
@@ -233,11 +192,8 @@ class Game:
 			if rows_cleared == 4:
 				self.has_bomb = True
 
-		# Inverted gravity: count down locked blocks, deactivate after 3rd
-		if self.inverted_gravity:
-			self.inverted_blocks_remaining -= 1
-			if self.inverted_blocks_remaining <= 0:
-				self.deactivate_inverted_gravity()
+		# Let inversion controller track lock count and auto-disable event
+		self.inversion.on_block_locked(self.grid)
 
 		self.current_block = self.spawn_current_block(self.next_block)
 		self.next_block = self.get_next_block()
@@ -279,10 +235,8 @@ class Game:
 		self.has_bomb = False
 		self.last_block_position = None
 		
-		# Reset inverted gravity state on game reset
-		self.inverted_gravity = False
-		self.inverted_blocks_remaining = 0
-		self.invert_event_seconds_until_trigger = self.invert_event_interval_seconds
+		# Reset inversion event state on game reset
+		self.inversion.reset_state()
 
 
 	def block_fits(self):
@@ -304,7 +258,7 @@ class Game:
 			if tile.column < 0 or tile.column >= self.grid.num_cols:
 				return False
 			# Inverted: blocks can't go above row 0 (spawn area flipped)
-			if self.inverted_gravity and tile.row < 0:
+			if self.inversion.inverted_gravity and tile.row < 0:
 				return False
 			if tile.row >= self.grid.num_rows:
 				return False
@@ -371,3 +325,4 @@ class Game:
 			return ""
 		next_level_number = self.levels[self.pending_level_index].number
 		return f"Level {next_level_number}"
+
