@@ -53,9 +53,12 @@ while True:
 			# Handle game events
 			if event.type == pygame.KEYDOWN:
 				if game.game_over == True:
-					game.game_over = False
-					game.reset()
-					pygame.time.set_timer(GAME_UPDATE, game.get_drop_interval())
+					# Return to main menu only when Enter is pressed.
+					if event.key == pygame.K_RETURN:
+						game_started = False
+						start_screen.game_started = False
+						game = None
+					continue
 				if event.key == pygame.K_LEFT and game.game_over == False and game.is_level_transitioning() == False:
 					game.move_left()
 				if event.key == pygame.K_RIGHT and game.game_over == False and game.is_level_transitioning() == False:
@@ -68,8 +71,11 @@ while True:
 					game.hard_drop()
 				if event.key == pygame.K_a and game.game_over == False and game.is_level_transitioning() == False:
 					game.use_bomb_ability()
+				if event.key == pygame.K_1 and game.game_over == False and game.is_level_transitioning() == False:
+					game.trigger_invisibility(1000)
 			if event.type == GAME_UPDATE and game.game_over == False and game.is_level_transitioning() == False:
 				game.move_down()
+				game.update_level_events() 	#Update events on each game tick
 			if event.type == TIMER_UPDATE and game.game_over == False and game.is_level_transitioning() == False:
 				game.countdown()
 			if event.type == LEVEL_TRANSITION_UPDATE and game.game_over == False:
@@ -123,6 +129,17 @@ while True:
 		                                                                     centery = ability_rect.centery))
 
 		game.draw(screen)
+
+		#Display Event text if activated
+		if game.last_event_timer > 0 and game.last_event_text:
+			event_font = pygame.font.Font(None, 32)
+			event_surface = event_font.render(game.last_event_text, True, Colors.white)
+
+			event_bg = pygame.Rect(0, 680, 320, 45)
+			event_bg.centerx = screen.get_width() // 2
+
+			pygame.draw.rect(screen, Colors.light_blue, event_bg, 0, 12)
+			screen.blit(event_surface, event_surface.get_rect(center=event_bg.center))
 
 		if game.is_level_transitioning():
 			transition_font = pygame.font.Font(None, 72)
