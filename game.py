@@ -10,6 +10,14 @@ class Game:
 	def __init__(self):
 		self.grid = Grid()
 		self.blocks = [IBlock(), JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
+		
+		# pelikentän peilauksen määritykset
+		self.inverted_gravity = False
+		self.invert_event_interval_seconds = 40  # Triggers every 40 seconds
+		self.invert_event_seconds_until_trigger = self.invert_event_interval_seconds
+		self.inverted_lock_target = 3  # Lasts for 3 locked blocks
+		self.inverted_blocks_remaining = 0
+		
 		self.current_block = self.spawn_current_block(self.get_random_block())
 		self.next_block = self.get_random_block()
 		self.game_over = False
@@ -54,6 +62,11 @@ class Game:
 		self.time_left = self.current_level.time_limit_seconds
 		self.drop_interval_ms = self.current_level.drop_interval_ms
 		self.speed_changed = True
+		
+		# Reset inverted gravity state when level changes
+		self.inverted_gravity = False
+		self.inverted_blocks_remaining = 0
+		self.invert_event_seconds_until_trigger = self.invert_event_interval_seconds
 
 		self.grid.reset()
 		self.blocks = [IBlock(), JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
@@ -111,8 +124,54 @@ class Game:
 		self.blocks.remove(block)
 		return block
 
+	# ===== Inverted Gravity Event Methods =====
+	def flip_grid_vertically(self):
+		"""Flip entire grid vertically - bottom row becomes top, top becomes bottom."""
+		flipped_grid = [[0 for _ in range(self.grid.num_cols)] for _ in range(self.grid.num_rows)]
+		for row in range(self.grid.num_rows):
+			for col in range(self.grid.num_cols):
+				flipped_row = self.grid.num_rows - 1 - row
+				flipped_grid[flipped_row][col] = self.grid.grid[row][col]
+		self.grid.grid = flipped_grid
+	
+	def get_gravity_step(self):
+		"""Returns gravity direction: -1 (up/inverted) or 1 (down/normal)"""
+		return -1 if self.inverted_gravity else 1
+
+	def activate_inverted_gravity(self):
+		"""Activates inverted gravity mode - field flips upside down"""
+		if self.inverted_gravity:
+			return
+		self.inverted_gravity = True
+		self.inverted_blocks_remaining = self.inverted_lock_target
+		self.flip_grid_vertically()  # Flip all locked blocks immediately
+
+	def deactivate_inverted_gravity(self):
+		"""Deactivates inverted gravity after 3 blocks have locked"""
+		self.inverted_gravity = False
+		self.inverted_blocks_remaining = 0
+		self.invert_event_seconds_until_trigger = self.invert_event_interval_seconds
+		self.flip_grid_vertically()  # Flip back to normal orientation
+
+	def update_inversion_event_timer(self):
+		"""Decrements 40-second timer. Triggers inversion when it reaches zero."""
+		if self.inverted_gravity:
+			return
+		self.invert_event_seconds_until_trigger -= 1
+		if self.invert_event_seconds_until_trigger <= 0:
+			self.activate_inverted_gravity()
+
 	def spawn_current_block(self, block):
-		block.move(-1, 0)
+		"""Spawn block at top (normal) or bottom (inverted gravity) of field"""
+		if self.inverted_gravity:
+			# Inverted: spawn at bottom, move block to bottom-center
+			cells = block.get_cell_positions()
+			max_row = max(cell.row for cell in cells)
+			shift_rows = (self.grid.num_rows - 1) - max_row
+			block.move(shift_rows, 0)
+		else:
+			# Normal: spawn at top
+			block.move(-1, 0)
 		return block
 	
 	def move_left(self):
@@ -123,17 +182,22 @@ class Game:
 		self.current_block.move(0, 1)
 		if self.block_inside() == False or self.block_fits() == False:
 			self.current_block.move(0, -1)
+	
 	def move_down(self):
-		self.current_block.move(1, 0)
+		"""Drop block one step (direction depends on gravity)"""
+		step = self.get_gravity_step()  # +1 normal, -1 inverted
+		self.current_block.move(step, 0)
 		if self.block_inside() == False or self.block_fits() == False:
-			self.current_block.move(-1, 0)
+			self.current_block.move(-step, 0)  # Undo move and lock
 			self.lock_block()
 
 	def hard_drop(self):
+		"""Instantly drop block to bottom (respects gravity direction)"""
+		step = self.get_gravity_step()  # +1 normal, -1 inverted
 		while self.block_inside() and self.block_fits():
-			self.current_block.move(1, 0)
+			self.current_block.move(step, 0)
 			if not self.block_inside() or not self.block_fits():
-				self.current_block.move(-1, 0)
+				self.current_block.move(-step, 0)  # Move back one step
 				self.lock_block()
 				break
 		
@@ -160,9 +224,7 @@ class Game:
 		# Set position for potential bomb explosion tracking
 		if tiles:
 			self.last_block_position = tiles[0]
-		
-		self.current_block = self.spawn_current_block(self.next_block)
-		self.next_block = self.get_next_block()
+
 		rows_cleared = self.grid.clear_full_rows()
 		
 		if rows_cleared > 0:
@@ -170,6 +232,15 @@ class Game:
 			# Grant bomb ability on Tetris (4 row clear)
 			if rows_cleared == 4:
 				self.has_bomb = True
+
+		# Inverted gravity: count down locked blocks, deactivate after 3rd
+		if self.inverted_gravity:
+			self.inverted_blocks_remaining -= 1
+			if self.inverted_blocks_remaining <= 0:
+				self.deactivate_inverted_gravity()
+
+		self.current_block = self.spawn_current_block(self.next_block)
+		self.next_block = self.get_next_block()
 		
 		if self.block_fits() == False:
 			self.game_over = True
@@ -207,6 +278,11 @@ class Game:
 		self.bomb_active = False
 		self.has_bomb = False
 		self.last_block_position = None
+		
+		# Reset inverted gravity state on game reset
+		self.inverted_gravity = False
+		self.inverted_blocks_remaining = 0
+		self.invert_event_seconds_until_trigger = self.invert_event_interval_seconds
 
 
 	def block_fits(self):
@@ -222,9 +298,13 @@ class Game:
 			self.current_block.undo_rotation()
 
 	def block_inside(self):
+		"""Check if block is within grid bounds. In inverted mode, top boundary becomes bottom."""
 		tiles = self.current_block.get_cell_positions()
 		for tile in tiles:
 			if tile.column < 0 or tile.column >= self.grid.num_cols:
+				return False
+			# Inverted: blocks can't go above row 0 (spawn area flipped)
+			if self.inverted_gravity and tile.row < 0:
 				return False
 			if tile.row >= self.grid.num_rows:
 				return False
@@ -256,10 +336,13 @@ class Game:
 				pygame.draw.rect(screen, self.current_block.colors[self.current_block.id], tile_rect)
 
 	def countdown(self):
+		"""Update game timer and check for random inverted gravity event"""
 		if self.game_over or self.is_level_transitioning():
 			return
 		if self.time_left > 0:
 			self.time_left -= 1
+		# Check 40-second inverted gravity event timer
+		self.update_inversion_event_timer()
 		if self.time_left <= 0:
 			self.time_left = 0
 			if self.try_advance_level() == False:
