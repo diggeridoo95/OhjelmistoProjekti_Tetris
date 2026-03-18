@@ -255,10 +255,15 @@ class Game:
 		self.invisible_until_ms = 0
 		self.bomb_active = False
 		self.has_bomb = False
-		self.last_block_position = None
-		
+		self.last_block_position = None		
 		# Reset inversion event state on game reset
 		self.inversion.reset_state()
+
+	def trigger_invisibility(self, duration_ms=1000):
+		self.invisible_until_ms = pygame.time.get_ticks() + max(0, duration_ms)
+
+	def is_invisible_active(self):
+		return pygame.time.get_ticks() < self.invisible_until_ms
 
 	def trigger_invisibility(self, duration_ms=1000):
 		self.invisible_until_ms = pygame.time.get_ticks() + max(0, duration_ms)
