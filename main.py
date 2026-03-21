@@ -1,32 +1,81 @@
-import pygame, sys
+import pygame, sys, os
 from colors import Colors
 from game import Game
 from blocks import *
 from startgame import StartScreen
 pygame.init()
 
-title_font = pygame.font.Font(None, 40)
-score_surface = title_font.render("Score", True, Colors.white)
-level_surface = title_font.render("Level", True, Colors.white)
-goal_surface = title_font.render("Goal", True, Colors.white)
-time_text_surface = title_font.render("Time", True, Colors.white)
-next_surface = title_font.render("Next", True, Colors.white)
-ability_surface = title_font.render("Ability", True, Colors.white)
-score_rect = pygame.Rect(320, 55, 170, 60)
-next_rect = pygame.Rect(315, 185, 170, 180)
-ability_rect = pygame.Rect(315, 405, 170, 180)
-game_over_surface = title_font.render("Game Over!", True, Colors.white)
-you_won_surface = title_font.render("You Won!", True, Colors.white)
+INITIAL_WIDTH = 1000
+INITIAL_HEIGHT = 720
+GRID_COLS = 10
+GRID_ROWS = 20
+BASE_CELL = 30
+MIN_CELL = 14
+BASE_SIDE_MIN = 170
 
-screen = pygame.display.set_mode((500, 720))
+screen = pygame.display.set_mode((INITIAL_WIDTH, INITIAL_HEIGHT), pygame.RESIZABLE)
 pygame.display.set_caption("Tetris Overwhelmed")
 
 clock = pygame.time.Clock()
 
 # Initialize start screen
-start_screen = StartScreen(500, 640)
+start_screen = StartScreen(INITIAL_WIDTH, INITIAL_HEIGHT)
 game = None
 game_started = False
+background_image = None
+
+background_path = os.path.join(os.path.dirname(__file__), "pictures", "background.png")
+if os.path.exists(background_path):
+	try:
+		background_image = pygame.image.load(background_path).convert()
+		start_screen.set_background_image(background_image)
+	except pygame.error:
+		background_image = None
+
+
+def make_font(base_size, ui_scale, min_size=16):
+	return pygame.font.Font(None, max(min_size, int(base_size * ui_scale)))
+
+
+def clamp(value, low, high):
+	return max(low, min(high, value))
+
+
+def get_layout(width, height):
+	margin = max(8, int(min(width, height) * 0.012))
+	side_min = max(BASE_SIDE_MIN, int(width * 0.15))
+
+	max_cell_w = (width - (2 * side_min) - (4 * margin)) // GRID_COLS
+	max_cell_h = (height - (2 * margin)) // GRID_ROWS
+	cell_size = max(MIN_CELL, min(max_cell_w, max_cell_h))
+
+	grid_w = GRID_COLS * cell_size
+	grid_h = GRID_ROWS * cell_size
+	grid_x = (width - grid_w) // 2
+	grid_y = height - grid_h - margin
+
+	left_space = grid_x
+	right_space = width - (grid_x + grid_w)
+	left_panel_w = max(120, left_space - (2 * margin))
+	right_panel_w = max(120, right_space - (2 * margin))
+	left_panel_x = margin
+	right_panel_x = width - right_panel_w - margin
+
+	ui_scale = max(0.65, cell_size / BASE_CELL)
+
+	return {
+		"margin": margin,
+		"ui_scale": ui_scale,
+		"cell_size": cell_size,
+		"grid_x": grid_x,
+		"grid_y": grid_y,
+		"grid_w": grid_w,
+		"grid_h": grid_h,
+		"left_panel_x": left_panel_x,
+		"left_panel_w": left_panel_w,
+		"right_panel_x": right_panel_x,
+		"right_panel_w": right_panel_w,
+	}
 
 GAME_UPDATE = pygame.USEREVENT
 TIMER_UPDATE = pygame.USEREVENT + 1
@@ -90,31 +139,114 @@ while True:
 		start_screen.draw(screen)
 	else:
 		# Draw game
+		window_w, window_h = screen.get_size()
+		layout = get_layout(window_w, window_h)
+		ui_scale = layout["ui_scale"]
+
+		title_font = make_font(40, ui_scale, 20)
+		small_font = make_font(24, ui_scale, 14)
+		event_font = make_font(32, ui_scale, 18)
+		transition_font = make_font(72, ui_scale, 24)
+
+		score_surface = title_font.render("Score", True, Colors.white)
+		next_surface = title_font.render("Next", True, Colors.white)
+		ability_surface = title_font.render("Ability", True, Colors.white)
+		level_surface = title_font.render("Level", True, Colors.white)
+		goal_surface = title_font.render("Goal", True, Colors.white)
+		time_text_surface = title_font.render("Time", True, Colors.white)
+		game_over_surface = title_font.render("Game Over!", True, Colors.white)
+		you_won_surface = title_font.render("You Won!", True, Colors.white)
+
 		score_value_surface = title_font.render(str(game.score), True, Colors.white)
 		level_value_surface = title_font.render(game.get_level_text(), True, Colors.white)
-		goal_value_surface = title_font.render(f"Goal: {game.get_level_goal_text()}", True, Colors.white)
+		goal_value_surface = title_font.render(game.get_level_goal_text(), True, Colors.white)
 		time_surface = title_font.render(game.get_time_text(), True, Colors.white)
 
-		screen.fill(Colors.dark_blue)
-		screen.blit(score_surface, (365, 20, 50, 50))
-		screen.blit(next_surface, (375, 150, 50, 50))
-		screen.blit(ability_surface, (360, 375, 50, 50))
-		screen.blit(level_value_surface, (20, 620))
-		screen.blit(goal_value_surface, (20, 655))
-		screen.blit(time_text_surface, (360, 600, 50, 50))
-		screen.blit(time_surface, (360, 635, 50, 50))
+		panel_box_size = min(layout["right_panel_w"], max(120, int(180 * ui_scale)))
+		panel_box_x = layout["right_panel_x"] + (layout["right_panel_w"] - panel_box_size) // 2
+		left_value_box_w = min(layout["left_panel_w"], max(120, int(180 * ui_scale)))
+		left_value_box_h = max(40, int(56 * ui_scale))
+		left_value_box_x = layout["left_panel_x"] + (layout["left_panel_w"] - left_value_box_w) // 2
+		left_label_gap = max(16, int(24 * ui_scale))
+		left_section_gap = max(26, int(34 * ui_scale))
+		left_first_box_y = int(175 * ui_scale)
+		goal_box_y = left_first_box_y + left_value_box_h + left_section_gap + left_label_gap
+		time_box_y = goal_box_y + left_value_box_h + left_section_gap + left_label_gap
 
-		if game.game_over == True:
-			if game.game_won:
-				screen.blit(you_won_surface, (335, 670, 170, 60))
-			else:
-				screen.blit(game_over_surface, (335, 670, 170, 60))
-			
-		pygame.draw.rect(screen, Colors.light_blue, score_rect, 0, 10)
+		score_rect = pygame.Rect(
+			panel_box_x,
+			int(55 * ui_scale),
+			panel_box_size,
+			max(40, int(60 * ui_scale)),
+		)
+		next_rect = pygame.Rect(
+			panel_box_x,
+			int(185 * ui_scale),
+			panel_box_size,
+			panel_box_size,
+		)
+		ability_rect = pygame.Rect(
+			panel_box_x,
+			int(405 * ui_scale),
+			panel_box_size,
+			panel_box_size,
+		)
+		level_value_rect = pygame.Rect(
+			left_value_box_x,
+			left_first_box_y,
+			left_value_box_w,
+			left_value_box_h,
+		)
+		goal_value_rect = pygame.Rect(
+			left_value_box_x,
+			goal_box_y,
+			left_value_box_w,
+			left_value_box_h,
+		)
+		time_value_rect = pygame.Rect(
+			left_value_box_x,
+			time_box_y,
+			left_value_box_w,
+			left_value_box_h,
+		)
+
+		game.set_cell_size(layout["cell_size"])
+		game.set_layout(layout["grid_x"], layout["grid_y"], next_rect)
+
+		if background_image is not None:
+			scaled_background = pygame.transform.smoothscale(background_image, (window_w, window_h))
+			screen.blit(scaled_background, (0, 0))
+		else:
+			screen.fill(Colors.dark_blue)
+
+		# Solid base under the playfield keeps grid gaps from showing the wallpaper.
+		playfield_padding = max(3, int(5 * ui_scale))
+		playfield_bg_rect = pygame.Rect(
+			layout["grid_x"] - playfield_padding,
+			layout["grid_y"] - playfield_padding,
+			layout["grid_w"] + (2 * playfield_padding),
+			layout["grid_h"] + (2 * playfield_padding),
+		)
+		pygame.draw.rect(screen, Colors.dark_grey, playfield_bg_rect, 0, max(6, int(10 * ui_scale)))
+		pygame.draw.rect(screen, Colors.light_blue, playfield_bg_rect, max(1, int(2 * ui_scale)), max(6, int(10 * ui_scale)))
+		screen.blit(score_surface, score_surface.get_rect(center=(score_rect.centerx, int(30 * ui_scale))))
+		screen.blit(next_surface, next_surface.get_rect(center=(next_rect.centerx, int(160 * ui_scale))))
+		screen.blit(ability_surface, ability_surface.get_rect(center=(ability_rect.centerx, int(385 * ui_scale))))
+		screen.blit(level_surface, level_surface.get_rect(center=(level_value_rect.centerx, level_value_rect.top - left_label_gap)))
+		screen.blit(goal_surface, goal_surface.get_rect(center=(goal_value_rect.centerx, goal_value_rect.top - left_label_gap)))
+		screen.blit(time_text_surface, time_text_surface.get_rect(center=(time_value_rect.centerx, time_value_rect.top - left_label_gap)))
+
+		pygame.draw.rect(screen, Colors.light_blue2, score_rect, 0, max(6, int(10 * ui_scale)))
 		screen.blit(score_value_surface, score_value_surface.get_rect(centerx = score_rect.centerx, 
 		                                                                  centery = score_rect.centery))
-		pygame.draw.rect(screen, Colors.light_blue, next_rect, 0, 10)
-		pygame.draw.rect(screen, Colors.light_blue, ability_rect, 0, 10)
+		pygame.draw.rect(screen, Colors.light_blue2, next_rect, 0, max(6, int(10 * ui_scale)))
+		pygame.draw.rect(screen, Colors.light_blue2, ability_rect, 0, max(6, int(10 * ui_scale)))
+		pygame.draw.rect(screen, Colors.light_blue2, level_value_rect, 0, max(6, int(10 * ui_scale)))
+		screen.blit(level_value_surface, level_value_surface.get_rect(center=level_value_rect.center))
+		pygame.draw.rect(screen, Colors.light_blue2, goal_value_rect, 0, max(6, int(10 * ui_scale)))
+		screen.blit(goal_value_surface, goal_value_surface.get_rect(center=goal_value_rect.center))
+		pygame.draw.rect(screen, Colors.light_blue2, time_value_rect, 0, max(6, int(10 * ui_scale)))
+		screen.blit(time_surface, time_surface.get_rect(center=time_value_rect.center))
 		
 		# Display ability status
 		if game.has_bomb:
@@ -124,7 +256,7 @@ while True:
 			ability_text = " "
 			ability_color = Colors.white
 		
-		ability_value_surface = pygame.font.Font(None, 24).render(ability_text, True, ability_color)
+		ability_value_surface = small_font.render(ability_text, True, ability_color)
 		screen.blit(ability_value_surface, ability_value_surface.get_rect(centerx = ability_rect.centerx, 
 		                                                                     centery = ability_rect.centery))
 
@@ -132,21 +264,30 @@ while True:
 
 		#Display Event text if activated
 		if game.last_event_timer > 0 and game.last_event_text:
-			event_font = pygame.font.Font(None, 32)
 			event_surface = event_font.render(game.last_event_text, True, Colors.white)
 
-			event_bg = pygame.Rect(0, 680, 320, 45)
-			event_bg.centerx = screen.get_width() // 2
+			event_bg = pygame.Rect(0, int(680 * ui_scale), max(220, int(320 * ui_scale)), max(28, int(45 * ui_scale)))
+			event_bg.centerx = layout["left_panel_x"] + (layout["left_panel_w"] // 2)
 
-			pygame.draw.rect(screen, Colors.light_blue, event_bg, 0, 12)
+			pygame.draw.rect(screen, Colors.light_blue, event_bg, 0, max(8, int(12 * ui_scale)))
 			screen.blit(event_surface, event_surface.get_rect(center=event_bg.center))
 
-		if game.is_level_transitioning():
-			transition_font = pygame.font.Font(None, 72)
-			transition_text = transition_font.render(game.get_transition_text(), True, Colors.white)
-			transition_bg = pygame.Rect(70, 280, 360, 100)
-			pygame.draw.rect(screen, Colors.light_blue, transition_bg, 0, 16)
-			screen.blit(transition_text, transition_text.get_rect(center=transition_bg.center))
+		overlay_bg = pygame.Rect(
+			int(70 * ui_scale),
+			int(265 * ui_scale),
+			max(220, int(360 * ui_scale)),
+			max(60, int(100 * ui_scale)),
+		)
+		overlay_bg.centerx = layout["grid_x"] + (layout["grid_w"] // 2)
+
+		if game.game_over == True:
+			overlay_text_surface = you_won_surface if game.game_won else game_over_surface
+			pygame.draw.rect(screen, Colors.light_blue2, overlay_bg, 0, max(10, int(16 * ui_scale)))
+			screen.blit(overlay_text_surface, overlay_text_surface.get_rect(center=overlay_bg.center))
+		elif game.is_level_transitioning():
+			overlay_text_surface = transition_font.render(game.get_transition_text(), True, Colors.white)
+			pygame.draw.rect(screen, Colors.light_blue2, overlay_bg, 0, max(10, int(16 * ui_scale)))
+			screen.blit(overlay_text_surface, overlay_text_surface.get_rect(center=overlay_bg.center))
 
 	pygame.display.update()
 	clock.tick(60)

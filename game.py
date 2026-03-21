@@ -11,6 +11,9 @@ import pygame
 class Game:
 	def __init__(self):
 		self.grid = Grid()
+		self.grid_offset_x = 11
+		self.grid_offset_y = 11
+		self.next_preview_rect = pygame.Rect(315, 185, 170, 180)
 		self.blocks = [IBlock(), JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
 		
 		# pelikentän peilauksen määritykset 
@@ -298,27 +301,52 @@ class Game:
 		return True
 	
 	def draw(self, screen):
-		self.grid.draw(screen)
+		self.grid.draw(screen, self.grid_offset_x, self.grid_offset_y)
 		if self.game_over == False:
-			self.draw_current_block_clipped(screen, 11, 11)
+			self.draw_current_block_clipped(screen, self.grid_offset_x, self.grid_offset_y)
 
-		if self.next_block.id == 3:
-			self.next_block.draw(screen, 250, 260)
-		elif self.next_block.id == 4:
-			self.next_block.draw(screen, 250, 245)
-		elif self.next_block.id == 8:  # BombBlock
-			self.next_block.draw(screen, 295, 290)
-		else:
-			self.next_block.draw(screen, 265, 240)
+		self.draw_next_block_preview(screen)
 
 		if self.is_invisible_active():
 			self.draw_invisibility_overlay(screen)
 
+	def draw_next_block_preview(self, screen):
+		tiles = self.next_block.get_cell_positions()
+		if not tiles:
+			return
+
+		min_col = min(tile.column for tile in tiles)
+		max_col = max(tile.column for tile in tiles)
+		min_row = min(tile.row for tile in tiles)
+		max_row = max(tile.row for tile in tiles)
+
+		tile_size = self.next_block.cell_size
+		shape_width = (max_col - min_col + 1) * tile_size
+		shape_height = (max_row - min_row + 1) * tile_size
+
+		offset_x = self.next_preview_rect.x + (self.next_preview_rect.width - shape_width) // 2 - (min_col * tile_size)
+		offset_y = self.next_preview_rect.y + (self.next_preview_rect.height - shape_height) // 2 - (min_row * tile_size)
+		self.next_block.draw(screen, offset_x, offset_y)
+
 	def draw_invisibility_overlay(self, screen):
-		playfield_rect = pygame.Rect(11, 11, self.grid.num_cols * self.grid.cell_size, self.grid.num_rows * self.grid.cell_size)
-		next_preview_rect = pygame.Rect(315, 185, 170, 180)
+		playfield_rect = pygame.Rect(
+			self.grid_offset_x,
+			self.grid_offset_y,
+			self.grid.num_cols * self.grid.cell_size,
+			self.grid.num_rows * self.grid.cell_size,
+		)
 		pygame.draw.rect(screen, Colors.dark_blue, playfield_rect)
-		pygame.draw.rect(screen, Colors.light_blue, next_preview_rect, 0, 10)
+		pygame.draw.rect(screen, Colors.light_blue, self.next_preview_rect, 0, 10)
+
+	def set_layout(self, grid_x, grid_y, next_preview_rect):
+		self.grid_offset_x = grid_x
+		self.grid_offset_y = grid_y
+		self.next_preview_rect = next_preview_rect
+
+	def set_cell_size(self, cell_size):
+		self.grid.cell_size = cell_size
+		self.current_block.cell_size = cell_size
+		self.next_block.cell_size = cell_size
 
 	def draw_current_block_clipped(self, screen, offset_x, offset_y):
 		for tile in self.current_block.get_cell_positions():
@@ -357,7 +385,8 @@ class Game:
 		return changed
 
 	def get_level_text(self):
-		return f"Level {self.current_level.number}"
+		#return f"Level {self.current_level.number}"
+		return str(self.current_level.number)
 
 	def get_level_goal_text(self):
 		return f"{self.get_level_score()}/{self.current_level.target_score}"
