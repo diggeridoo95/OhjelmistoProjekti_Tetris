@@ -101,10 +101,10 @@ class Grid:
         # Apply gravity and clear completed rows
         self.clear_full_rows()
         
-    def draw(self, screen):
+    def draw(self, screen, offset_x=11, offset_y=11):
         for row in range(self.num_rows):
             for column in range(self.num_cols):
                 cell_value = self.grid[row][column]
-                cell_rect = pygame.Rect(column*self.cell_size +11, row*self.cell_size+11, 
+                cell_rect = pygame.Rect(column*self.cell_size + offset_x, row*self.cell_size + offset_y, 
                                         self.cell_size-1, self.cell_size-1)
                 pygame.draw.rect(screen, self.colors[cell_value], cell_rect)
