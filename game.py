@@ -113,6 +113,9 @@ class Game:
 	def try_advance_level(self):
 		if self.game_over or self.is_level_transitioning():
 			return False
+		
+		if self.time_left > 0:
+			return False
 
 		if self.get_level_score() < self.current_level.target_score:
 			return False
