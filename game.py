@@ -4,6 +4,7 @@ from abilities import BombAbility
 from levels import get_levels
 from inversion import InversionController
 from colors import Colors
+from effects import SpeedLines, CellFlashEffect
 import random
 import pygame
 
@@ -38,6 +39,8 @@ class Game:
 		self.invisible_until_ms = 0
 		self.last_event_text = ""
 		self.last_event_timer = 0
+		self.hard_drop_lines = SpeedLines()
+		self.lock_flash_effect = CellFlashEffect()
 		
 		
 		# Ability system
@@ -154,7 +157,11 @@ class Game:
 
 	def update_inversion_event_timer(self):
 		"""Updates inversion event timer and activates event when needed."""
+		was_inverted = self.inversion.inverted_gravity
 		self.inversion.update_timer(self.grid)
+		
+		if was_inverted != self.inversion.inverted_gravity:
+			self.lock_flash_effect.remap_vertical_flip(self.grid.num_rows)
 
 	def spawn_current_block(self, block):
 		"""Spawns a block using inversion-aware spawn rules."""
@@ -180,17 +187,30 @@ class Game:
 	def hard_drop(self):
 		"""Instantly drop block to bottom (respects gravity direction)"""
 		step = self.get_gravity_step()  # +1 normal, -1 inverted
+		drop_distance = 0
 		while self.block_inside() and self.block_fits():
 			self.current_block.move(step, 0)
 			if not self.block_inside() or not self.block_fits():
 				self.current_block.move(-step, 0)  # Move back one step
-				self.lock_block()
 				break
+			drop_distance += 1
+
+		if drop_distance > 0:
+			self.hard_drop_lines.trigger(
+				self.current_block.get_cell_positions(),
+				drop_distance,
+				self.grid.num_rows,
+				step,
+				self.current_block.colors[self.current_block.id],
+			)
+		self.lock_block()
+
 		
 		self.update_score(0, 2)
 
 	def lock_block(self):
 		tiles = self.current_block.get_cell_positions()
+		flash_cells = []
 		
 		# Check if current block is a bomb block - if so, trigger explosion
 		if self.current_block.id == 8:  # BombBlock has id 8
@@ -205,7 +225,11 @@ class Game:
 			# Normal block locking
 			for position in tiles:
 				if self.grid.is_inside(position.row, position.column):
+					flash_cells.append((position.row, position.column))
 					self.grid.grid[position.row][position.column] = self.current_block.id
+
+			if flash_cells:
+				self.lock_flash_effect.trigger(flash_cells)#tähän voi määrittää halutessaan eri ajan, värin, keston yms.
 		
 		# Set position for potential bomb explosion tracking
 		if tiles:
@@ -214,13 +238,18 @@ class Game:
 		rows_cleared = self.grid.clear_full_rows()
 		
 		if rows_cleared > 0:
+
+			#self.lock_flash_effect.clear() #jos ei haluta välähdystä silloin, kun rivi poistuu
 			self.update_score(rows_cleared, 0)
 			# Grant bomb ability on Tetris (4 row clear)
 			if rows_cleared == 4:
 				self.has_bomb = True
 
 		# Let inversion controller track lock count and auto-disable event
+		was_inverted = self.inversion.inverted_gravity
 		self.inversion.on_block_locked(self.grid)
+		if was_inverted != self.inversion.inverted_gravity:
+			self.lock_flash_effect.remap_vertical_flip(self.grid.num_rows)
 
 		self.current_block = self.spawn_current_block(self.next_block)
 		self.next_block = self.get_next_block()
@@ -262,6 +291,8 @@ class Game:
 		self.bomb_active = False
 		self.has_bomb = False
 		self.last_block_position = None		
+		self.hard_drop_lines.clear()
+		self.lock_flash_effect.clear()
 		# Reset inversion event state on game reset
 		self.inversion.reset_state()
 
@@ -305,6 +336,8 @@ class Game:
 	
 	def draw(self, screen):
 		self.grid.draw(screen, self.grid_offset_x, self.grid_offset_y)
+		self.lock_flash_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
+		self.hard_drop_lines.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
 		if self.game_over == False:
 			self.draw_current_block_clipped(screen, self.grid_offset_x, self.grid_offset_y)
 
