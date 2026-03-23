@@ -250,15 +250,30 @@ while True:
 		
 		# Display ability status
 		if game.has_bomb:
-			ability_text = "Bomb: Available" if not game.bomb_active else "Bomb: Active"
-			ability_color = Colors.white if not game.bomb_active else (255, 255, 0)  # Yellow when active
+			# Draw a bomb block preview in the ability rect
+			bomb_block = BombBlock()
+			bomb_block.cell_size = layout["cell_size"]
+			tiles = bomb_block.get_cell_positions()
+			if tiles:
+				min_col = min(tile.column for tile in tiles)
+				max_col = max(tile.column for tile in tiles)
+				min_row = min(tile.row for tile in tiles)
+				max_row = max(tile.row for tile in tiles)
+				
+				tile_size = bomb_block.cell_size
+				shape_width = (max_col - min_col + 1) * tile_size
+				shape_height = (max_row - min_row + 1) * tile_size
+				
+				offset_x = ability_rect.x + (ability_rect.width - shape_width) // 2 - (min_col * tile_size)
+				offset_y = ability_rect.y + (ability_rect.height - shape_height) // 2 - (min_row * tile_size)
+				bomb_block.draw(screen, offset_x, offset_y)
 		else:
-			ability_text = " "
+			# Show "No Ability" text when bomb is not available
+			ability_text = "No Ability"
 			ability_color = Colors.white
-		
-		ability_value_surface = small_font.render(ability_text, True, ability_color)
-		screen.blit(ability_value_surface, ability_value_surface.get_rect(centerx = ability_rect.centerx, 
-		                                                                     centery = ability_rect.centery))
+			ability_value_surface = small_font.render(ability_text, True, ability_color)
+			screen.blit(ability_value_surface, ability_value_surface.get_rect(centerx = ability_rect.centerx, 
+			                                                                     centery = ability_rect.centery))
 
 		game.draw(screen)
 

@@ -181,3 +181,116 @@ class CellFlashEffect:
 
             pygame.draw.rect(screen, self.flash_color, tile_rect)
 
+
+class BombExplosionEffect:
+    def __init__(self, duration_ms=280):
+        self.duration_ms = max(80, duration_ms)
+        self.active_until = 0
+        self.started_at = 0
+        self.cells = []
+
+    def trigger(self, cells):
+        norm = []
+        for cell in cells:
+            if hasattr(cell, "row") and hasattr(cell, "column"):
+                row, col = cell.row, cell.column
+            else:
+                row, col = cell
+            norm.append((int(row), int(col)))
+
+        if not norm:
+            self.clear()
+            return
+
+        self.cells = list(dict.fromkeys(norm))
+        self.started_at = pygame.time.get_ticks()
+        self.active_until = self.started_at + self.duration_ms
+
+    def clear(self):
+        self.active_until = 0
+        self.started_at = 0
+        self.cells = []
+
+    def remap_vertical_flip(self, row_count):
+        if not self.cells:
+            return
+
+        max_row = row_count - 1
+        remapped = []
+        for row, col in self.cells:
+            remapped.append((max_row - row, col))
+        self.cells = remapped
+
+    def draw(self, screen, cell_size, offset_x, offset_y):
+        if not self.cells:
+            return
+
+        now = pygame.time.get_ticks()
+        if now >= self.active_until:
+            self.clear()
+            return
+
+        progress = (now - self.started_at) / self.duration_ms
+        progress = max(0.0, min(1.0, progress))
+        fade = 1.0 - progress
+
+        spark_alpha = int(230 * fade)
+        glow_alpha = int(150 * fade)
+        ring_alpha = int(200 * fade)
+
+        for row, col in self.cells:
+            x = offset_x + col * cell_size
+            y = offset_y + row * cell_size
+            size = max(1, cell_size - 1)
+
+            fx = pygame.Surface((size, size), pygame.SRCALPHA)
+            cx = size // 2
+            cy = size // 2
+
+            outer_r = max(3, int(size * (0.20 + 0.45 * progress)))
+            inner_r = max(2, int(size * (0.10 + 0.22 * progress)))
+            ring_w = max(1, int(size * 0.08))
+
+            pygame.draw.circle(fx, (255, 140, 40, glow_alpha), (cx, cy), outer_r)
+            pygame.draw.circle(fx, (255, 230, 120, spark_alpha), (cx, cy), inner_r)
+            pygame.draw.circle(fx, (255, 250, 220, ring_alpha), (cx, cy), outer_r, ring_w)
+
+            screen.blit(fx, (x, y))
+
+
+class InversionFlashEffect:
+    """Simple flash effect that plays when gravity inverts."""
+    
+    def __init__(self, duration_ms=500):
+        self.duration_ms = duration_ms
+        self.active_until = 0
+        self.started_at = 0
+    
+    def trigger(self):
+        self.started_at = pygame.time.get_ticks()
+        self.active_until = self.started_at + self.duration_ms
+    
+    def clear(self):
+        self.active_until = 0
+        self.started_at = 0
+    
+    def draw(self, screen, screen_width, screen_height):
+        if self.active_until == 0:
+            return
+        
+        now = pygame.time.get_ticks()
+        if now >= self.active_until:
+            self.clear()
+            return
+        
+        progress = (now - self.started_at) / self.duration_ms
+        progress = max(0.0, min(1.0, progress))
+        
+        # Fade out over time - stronger and more visible
+        alpha = int(180 * (1.0 - progress))
+        
+        # Create a semi-transparent overlay with a bright cyan/purple tint
+        overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+        overlay.fill((150, 100, 255, alpha))
+        screen.blit(overlay, (0, 0))
+
