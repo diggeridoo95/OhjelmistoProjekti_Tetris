@@ -122,10 +122,12 @@ class Grid:
         self.clear_full_rows(gravity_step=gravity_step)
         return affected_cells
         
-    def draw(self, screen, offset_x=11, offset_y=11):
+    def draw(self, screen, offset_x=11, offset_y=11, hide_filled_blocks=False):
         for row in range(self.num_rows):
             for column in range(self.num_cols):
                 cell_value = self.grid[row][column]
+                if hide_filled_blocks:
+                    cell_value = 0
                 cell_rect = pygame.Rect(column*self.cell_size + offset_x, row*self.cell_size + offset_y, 
                                         self.cell_size-1, self.cell_size-1)
                 if cell_value == 8:

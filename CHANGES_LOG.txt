@@ -352,5 +352,127 @@ In effects.py (InversionFlashEffect.draw):
     # alpha = int(180 * ...)    # Change 180 for brighter/dimmer flash
 
 ================================================================================
+7. START MENU REWORK (NEWER CHANGES)
+================================================================================
+
+PURPOSE:
+- Replace single-key start screen with a proper menu UI.
+- Add clearer visual hierarchy and polished selection highlighting.
+
+FILES MODIFIED:
+- startgame.py
+
+CHANGE 7.1: Menu options and keyboard navigation
+Location:
+- startgame.py line 15: self.menu_options = ["Play", "Controls", "Quit"]
+- startgame.py line 21-37: Arrow key navigation + Enter selection + Quit behavior
+
+How it works:
+- Up/Down changes selected option index with wraparound.
+- Enter on "Play" starts game.
+- Enter on "Controls" currently placeholder.
+- Enter on "Quit" closes application.
+
+CHANGE 7.2: Transparent rounded menu panel
+Location:
+- startgame.py line 85: rounded semi-transparent white panel draw
+
+Key code:
+    pygame.draw.rect(menu_box_surface, (255, 255, 255, 100), menu_box_surface.get_rect(), border_radius=10)
+
+How it works:
+- Menu panel is drawn as an alpha surface, then blitted over background.
+- Rounded corners match modern UI style and avoid hard rectangular edges.
+
+CHANGE 7.3: Full-width selected row highlight inside panel
+Location:
+- startgame.py line 114: highlight row spans width of menu panel with inset
+
+Key code:
+    highlight_box = pygame.Rect(menu_box.x + 4, option_rect.y - pad // 2, menu_box.width - 8, option_rect.height + pad)
+
+How it works:
+- Selected row fills left-to-right inside panel, not just around text.
+- +4 / -8 inset keeps highlight visually inside border.
+- Highlight itself is also semi-transparent white with rounded corners.
+
+CHANGE 7.4: Option typography and shadow style matching title
+Location:
+- startgame.py line 98 and line 122: option shadow render
+
+How it works:
+- Each option is drawn with a dark shadow first, then foreground text.
+- Selected option uses white foreground, others use lighter blue tone.
+
+================================================================================
+8. PAUSE MENU SYSTEM (NEWER CHANGES)
+================================================================================
+
+PURPOSE:
+- Add in-game pause behavior with a dedicated pause overlay menu.
+- Hide current and placed blocks while paused, but keep HUD/time/grid frame visible.
+
+FILES ADDED:
+- pausemenu.py
+
+FILES MODIFIED:
+- main.py
+- game.py
+- grid.py
+
+CHANGE 8.1: New pause menu module
+Location:
+- pausemenu.py line 5: class PauseMenu
+- pausemenu.py line 7: options ["Continue", "Exit to Main Menu"]
+- pausemenu.py line 22: P key mapped to continue
+
+How it works:
+- Pause menu owns its own selection state and event handling.
+- Up/Down navigates options.
+- Enter applies selected action.
+- P can also unpause quickly.
+
+CHANGE 8.2: Main loop pause state integration
+Location:
+- main.py line 6: import PauseMenu
+- main.py line 26: game_paused state variable
+- main.py line 108: paused event-handling branch
+- main.py line 130: P key opens pause while playing
+
+How it works:
+- While paused, gameplay input is blocked and routed to pause menu only.
+- Continue resumes gameplay.
+- Exit to Main Menu returns to start screen cleanly.
+
+CHANGE 8.3: Freeze game updates during pause
+Location:
+- main.py line 152: GAME_UPDATE blocked if paused
+- main.py line 155: TIMER_UPDATE blocked if paused
+- main.py line 157: LEVEL_TRANSITION_UPDATE blocked if paused
+
+How it works:
+- Falling, timer countdown, and level transition timing stop during pause.
+- Prevents game progression while user is in pause overlay.
+
+CHANGE 8.4: Hide blocks while paused (but keep grid/UI)
+Location:
+- main.py line 302: game.draw(screen, hide_blocks=game_paused)
+- game.py line 344: draw signature with hide_blocks flag
+- grid.py line 125: draw signature with hide_filled_blocks flag
+
+How it works:
+- In paused mode, grid cells are rendered as empty style only.
+- Current block, next preview block, and active visual effects are skipped.
+- HUD (score/time/labels), grid frame/background, and pause overlay remain visible.
+
+CHANGE 8.5: Pause overlay rendering
+Location:
+- main.py line 332: pause_menu.draw(screen)
+
+How it works:
+- Pause menu is drawn last as overlay layer.
+- Includes dimmed background, rounded translucent panel, and option highlight.
+
+================================================================================
 END OF DOCUMENTATION
 ================================================================================

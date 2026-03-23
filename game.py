@@ -250,7 +250,7 @@ class Game:
 			#self.lock_flash_effect.clear() #jos ei haluta välähdystä silloin, kun rivi poistuu
 			self.update_score(rows_cleared, 0)
 			# Grant bomb ability on Tetris (4 row clear)
-			if rows_cleared == 1:
+			if rows_cleared == 1 or rows_cleared == 2 or rows_cleared == 3 or rows_cleared == 4:
 				self.has_bomb = True
 
 		# Let inversion controller track lock count and auto-disable event
@@ -341,19 +341,21 @@ class Game:
 				return False
 		return True
 	
-	def draw(self, screen):
-		self.grid.draw(screen, self.grid_offset_x, self.grid_offset_y)
-		self.bomb_explosion_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
-		self.lock_flash_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
-		self.hard_drop_lines.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
-		self.inversion_flash_effect.draw(screen, screen.get_width(), screen.get_height())
-		if self.game_over == False:
-			self.draw_current_block_clipped(screen, self.grid_offset_x, self.grid_offset_y)
+	def draw(self, screen, hide_blocks=False):
+		self.grid.draw(screen, self.grid_offset_x, self.grid_offset_y, hide_filled_blocks=hide_blocks)
 
-		self.draw_next_block_preview(screen)
+		if not hide_blocks:
+			self.bomb_explosion_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
+			self.lock_flash_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
+			self.hard_drop_lines.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
+			self.inversion_flash_effect.draw(screen, screen.get_width(), screen.get_height())
+			if self.game_over == False:
+				self.draw_current_block_clipped(screen, self.grid_offset_x, self.grid_offset_y)
 
-		if self.is_invisible_active():
-			self.draw_invisibility_overlay(screen)
+			self.draw_next_block_preview(screen)
+
+			if self.is_invisible_active():
+				self.draw_invisibility_overlay(screen)
 
 	def draw_next_block_preview(self, screen):
 		tiles = self.next_block.get_cell_positions()

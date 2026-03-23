@@ -3,6 +3,7 @@ from colors import Colors
 from game import Game
 from blocks import *
 from startgame import StartScreen
+from pausemenu import PauseMenu
 pygame.init()
 
 INITIAL_WIDTH = 1000
@@ -22,6 +23,8 @@ clock = pygame.time.Clock()
 start_screen = StartScreen(INITIAL_WIDTH, INITIAL_HEIGHT)
 game = None
 game_started = False
+game_paused = False
+pause_menu = None
 background_image = None
 
 background_path = os.path.join(os.path.dirname(__file__), "pictures", "background.png")
@@ -96,10 +99,24 @@ while True:
 			if start_screen.game_started:
 				game_started = True
 				game = Game()
+				game_paused = False
+				pause_menu = PauseMenu()
 				pygame.time.set_timer(GAME_UPDATE, game.get_drop_interval())
 
 		else:
 			# Handle game events
+			if game_paused:
+				action = pause_menu.handle_event(event)
+				if action == "continue":
+					game_paused = False
+				elif action == "main_menu":
+					game_started = False
+					start_screen.game_started = False
+					game = None
+					pause_menu = None
+					game_paused = False
+				continue
+
 			if event.type == pygame.KEYDOWN:
 				if game.game_over == True:
 					# Return to main menu only when Enter is pressed.
@@ -107,6 +124,13 @@ while True:
 						game_started = False
 						start_screen.game_started = False
 						game = None
+						pause_menu = None
+						game_paused = False
+					continue
+				if event.key == pygame.K_p and game.game_over == False:
+					game_paused = True
+					if pause_menu is None:
+						pause_menu = PauseMenu()
 					continue
 				if event.key == pygame.K_LEFT and game.game_over == False and game.is_level_transitioning() == False:
 					game.move_left()
@@ -122,12 +146,12 @@ while True:
 					game.use_bomb_ability()
 				if event.key == pygame.K_1 and game.game_over == False and game.is_level_transitioning() == False:
 					game.trigger_invisibility(1000)
-			if event.type == GAME_UPDATE and game.game_over == False and game.is_level_transitioning() == False:
+			if event.type == GAME_UPDATE and game.game_over == False and game.is_level_transitioning() == False and game_paused == False:
 				game.move_down()
 				game.update_level_events() 	#Update events on each game tick
-			if event.type == TIMER_UPDATE and game.game_over == False and game.is_level_transitioning() == False:
+			if event.type == TIMER_UPDATE and game.game_over == False and game.is_level_transitioning() == False and game_paused == False:
 				game.countdown()
-			if event.type == LEVEL_TRANSITION_UPDATE and game.game_over == False:
+			if event.type == LEVEL_TRANSITION_UPDATE and game.game_over == False and game_paused == False:
 				game.update_level_transition(100)
 			
 			if game.consume_speed_change_flag():
@@ -275,7 +299,7 @@ while True:
 			screen.blit(ability_value_surface, ability_value_surface.get_rect(centerx = ability_rect.centerx, 
 			                                                                     centery = ability_rect.centery))
 
-		game.draw(screen)
+		game.draw(screen, hide_blocks=game_paused)
 
 		#Display Event text if activated
 		if game.last_event_timer > 0 and game.last_event_text:
@@ -303,6 +327,9 @@ while True:
 			overlay_text_surface = transition_font.render(game.get_transition_text(), True, Colors.white)
 			pygame.draw.rect(screen, Colors.light_blue2, overlay_bg, 0, max(10, int(16 * ui_scale)))
 			screen.blit(overlay_text_surface, overlay_text_surface.get_rect(center=overlay_bg.center))
+
+		if game_paused and pause_menu is not None:
+			pause_menu.draw(screen)
 
 	pygame.display.update()
 	clock.tick(60)
