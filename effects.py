@@ -181,3 +181,71 @@ class CellFlashEffect:
 
             pygame.draw.rect(screen, self.flash_color, tile_rect)
 
+
+class MagicWandEffect:
+    def __init__(self, duration_ms=420):
+        self.duration_ms = max(120, duration_ms)
+        self.started_at = 0
+        self.active_until = 0
+        self.cells = []
+
+    def trigger(self, cells):
+        norm = []
+        for cell in cells:
+            if hasattr(cell, "row") and hasattr(cell, "column"):
+                row, col = cell.row, cell.column
+            else:
+                row, col = cell
+            norm.append((int(row), int(col)))
+
+        if not norm:
+            self.clear()
+            return
+
+        self.cells = list(dict.fromkeys(norm))
+        self.started_at = pygame.time.get_ticks()
+        self.active_until = self.started_at + self.duration_ms
+
+    def clear(self):
+        self.started_at = 0
+        self.active_until = 0
+        self.cells = []
+
+    def draw(self, screen, cell_size, offset_x, offset_y):
+        if not self.cells:
+            return
+
+        now = pygame.time.get_ticks()
+        if now >= self.active_until:
+            self.clear()
+            return
+
+        progress = (now - self.started_at) / self.duration_ms
+        progress = max(0.0, min(1.0, progress))
+
+        # Two expanding rings plus a center glow for a wand-like burst.
+        ring1 = max(2, int(round(cell_size * (0.18 + 0.42 * progress))))
+        ring2 = max(2, int(round(cell_size * (0.08 + 0.62 * progress))))
+        inner = max(1, int(round(cell_size * (0.1 + 0.2 * (1.0 - progress)))))
+        thickness = max(1, int(round(cell_size * 0.08)))
+
+        fade = 1.0 - progress
+        ring_color = (
+            int(220 * fade),
+            int(170 * fade),
+            int(255 * fade),
+        )
+        glow_color = (
+            int(255 * fade),
+            int(230 * fade),
+            int(255 * fade),
+        )
+
+        for row, col in self.cells:
+            cx = offset_x + col * cell_size + (cell_size // 2)
+            cy = offset_y + row * cell_size + (cell_size // 2)
+
+            pygame.draw.circle(screen, ring_color, (cx, cy), ring1, thickness)
+            pygame.draw.circle(screen, ring_color, (cx, cy), ring2, thickness)
+            pygame.draw.circle(screen, glow_color, (cx, cy), inner)
+

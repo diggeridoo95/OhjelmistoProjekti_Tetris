@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import random
 
 
 class Ability(ABC):
@@ -62,3 +63,70 @@ class BombAbility(Ability):
 		
 		# Clear rows that might have been completed
 		grid.clear_full_rows()
+
+
+class MagicWandAbility(Ability):
+	"""Magic wand ability - fills 3-5 random empty cells on the grid."""
+	def __init__(self, min_fill=3, max_fill=5):
+		super().__init__("Magic Wand")
+		self.min_fill = max(1, min_fill)
+		self.max_fill = max(self.min_fill, max_fill)
+
+	def activate(self, game):
+		"""Fill holes from bottom upwards and consume the ability."""
+		if not game.has_magic_wand:
+			return False
+
+		occupied_by_current = set()
+		for tile in game.current_block.get_cell_positions():
+			if game.grid.is_inside(tile.row, tile.column):
+				occupied_by_current.add((tile.row, tile.column))
+
+		empty_cells = []
+		hole_cells = []
+		for row in range(game.grid.num_rows):
+			for col in range(game.grid.num_cols):
+				if game.grid.grid[row][col] == 0 and (row, col) not in occupied_by_current:
+					empty_cells.append((row, col))
+					# A hole has at least one filled cell above in the same column.
+					for above_row in range(0, row):
+						if game.grid.grid[above_row][col] != 0:
+							hole_cells.append((row, col))
+							break
+
+		if not empty_cells:
+			return False
+
+		fill_count = min(random.randint(self.min_fill, self.max_fill), len(empty_cells))
+
+		# Prefer real holes first; if none exist, use all empty cells.
+		target_cells = hole_cells if hole_cells else empty_cells
+
+		# Fill from the bottom first. Randomize within the same row for variation.
+		cells_by_row = {}
+		for row, col in target_cells:
+			if row not in cells_by_row:
+				cells_by_row[row] = []
+			cells_by_row[row].append((row, col))
+
+		ordered_cells = []
+		for row in sorted(cells_by_row.keys(), reverse=True):
+			row_cells = cells_by_row[row]
+			random.shuffle(row_cells)
+			ordered_cells.extend(row_cells)
+
+		chosen = ordered_cells[:fill_count]
+
+		for row, col in chosen:
+			game.grid.grid[row][col] = random.randint(1, 7)
+
+		game.lock_flash_effect.trigger(chosen, color=(200, 160, 255), flashes=2, duration_ms=220)
+		game.magic_wand_effect.trigger(chosen)
+		game.last_event_text = f"Magic Wand filled {fill_count} cell{'s' if fill_count > 1 else ''}!"
+		game.last_event_timer = 90
+		self.deactivate(game)
+		return True
+
+	def deactivate(self, game):
+		self.is_active = False
+		game.has_magic_wand = False
