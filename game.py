@@ -48,7 +48,7 @@ class Game:
 		self.has_bomb = False  # Flag indicating player owns bomb ability
 		self.last_block_position = None  # Track position of last locked block for bomb explosion
 
-		self.apply_level(1)  # Start at level 2 for testing purposes
+		#self.apply_level(1)  # Start at level 2 for testing purposes
 							#Can be adjusted for further testing
 
 	def get_level_score(self):
