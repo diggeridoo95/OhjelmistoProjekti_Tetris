@@ -249,3 +249,107 @@ class MagicWandEffect:
             pygame.draw.circle(screen, ring_color, (cx, cy), ring2, thickness)
             pygame.draw.circle(screen, glow_color, (cx, cy), inner)
 
+class MolePopEffect:
+    def __init__(self, duration_ms=600):
+        self.duration_ms = max(200, duration_ms)
+        self.pops = []
+
+    def trigger(self, cells):
+        now = pygame.time.get_ticks()
+
+        for cell in cells:
+            if hasattr(cell, "row") and hasattr(cell, "column"):
+                row, col = cell.row, cell.column
+            else:
+                row, col = cell
+
+            self.pops.append({
+                "row": int(row),
+                "col": int(col),
+                "start": now,
+            })
+
+    def clear(self):
+        self.pops = []
+
+    def draw(self, screen, cell_size, offset_x, offset_y):
+        if not self.pops:
+            return
+
+        now = pygame.time.get_ticks()
+        active_pops = []
+
+        for pop in self.pops:
+            elapsed = now - pop["start"]
+            if elapsed >= self.duration_ms:
+                continue
+
+            active_pops.append(pop)
+
+            progress = elapsed / self.duration_ms
+
+            # Rise -> short hold -> sink
+            if progress < 0.4:
+                visible_amount = progress / 0.4
+            elif progress < 0.7:
+                visible_amount = 1.0
+            else:
+                visible_amount = max(0.0, 1.0 - ((progress - 0.7) / 0.3))
+
+            row = pop["row"]
+            col = pop["col"]
+
+            x = offset_x + col * cell_size
+            y = offset_y + row * cell_size
+
+            # Small hole near bottom of the target cell
+            hole_w = int(cell_size * 0.58)
+            hole_h = max(4, int(cell_size * 0.16))
+            hole_x = x + (cell_size - hole_w) // 2
+            hole_y = y + int(cell_size * 0.72)
+
+            pygame.draw.ellipse(
+                screen,
+                (30, 20, 10),
+                (hole_x, hole_y, hole_w, hole_h)
+            )
+
+            # Mole body rises from the hole
+            mole_w = int(cell_size * 0.56)
+            max_mole_h = int(cell_size * 0.65)
+            mole_h = max(1, int(max_mole_h * visible_amount))
+
+            mole_x = x + (cell_size - mole_w) // 2
+            mole_y = hole_y - mole_h + 2
+
+            # Body
+            pygame.draw.rect(
+                screen,
+                (125, 88, 55),
+                (mole_x, mole_y, mole_w, mole_h)
+            )
+
+            # Head top
+            head_h = max(2, int(mole_h * 0.35))
+            pygame.draw.rect(
+                screen,
+                (145, 104, 68),
+                (mole_x + 2, mole_y, max(2, mole_w - 4), head_h)
+            )
+
+            # Eyes
+            if mole_h > 6:
+                eye_size = max(1, cell_size // 12)
+                eye_y = mole_y + max(1, head_h // 2)
+                pygame.draw.rect(screen, (0, 0, 0), (mole_x + 4, eye_y, eye_size, eye_size))
+                pygame.draw.rect(screen, (0, 0, 0), (mole_x + mole_w - 4 - eye_size, eye_y, eye_size, eye_size))
+
+            # Nose
+            if mole_h > 8:
+                nose_w = max(2, cell_size // 8)
+                nose_h = max(2, cell_size // 10)
+                nose_x = mole_x + (mole_w - nose_w) // 2
+                nose_y = mole_y + head_h + 1
+                pygame.draw.rect(screen, (220, 120, 140), (nose_x, nose_y, nose_w, nose_h))
+
+        self.pops = active_pops

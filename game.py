@@ -3,7 +3,7 @@ from blocks import *
 from abilities import BombAbility, MagicWandAbility
 from levels import get_levels
 from inversion import InversionController
-from effects import SpeedLines, CellFlashEffect, MagicWandEffect
+from effects import SpeedLines, CellFlashEffect, MagicWandEffect, MolePopEffect
 import random
 import pygame
 
@@ -41,6 +41,7 @@ class Game:
 		self.hard_drop_lines = SpeedLines()
 		self.lock_flash_effect = CellFlashEffect()
 		self.magic_wand_effect = MagicWandEffect()
+		self.mole_pop_effect = MolePopEffect()
 		
 		
 		# Ability system
@@ -348,6 +349,7 @@ class Game:
 		self.grid.draw(screen, self.grid_offset_x, self.grid_offset_y, hide_blocks=invisible)
 		self.lock_flash_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
 		self.magic_wand_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
+		self.mole_pop_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
 		if not invisible:
 			self.hard_drop_lines.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
 		if self.game_over == False and not invisible:
