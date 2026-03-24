@@ -3,7 +3,6 @@ from blocks import *
 from abilities import BombAbility
 from levels import get_levels
 from inversion import InversionController
-from colors import Colors
 from effects import SpeedLines, CellFlashEffect
 import random
 import pygame
@@ -49,7 +48,7 @@ class Game:
 		self.has_bomb = False  # Flag indicating player owns bomb ability
 		self.last_block_position = None  # Track position of last locked block for bomb explosion
 
-		#self.apply_level(1)  # Start at level 2 for testing purposes
+		self.apply_level(1)  # Start at level 2 for testing purposes
 							#Can be adjusted for further testing
 
 	def get_level_score(self):
@@ -335,16 +334,15 @@ class Game:
 		return True
 	
 	def draw(self, screen):
-		self.grid.draw(screen, self.grid_offset_x, self.grid_offset_y)
+		invisible = self.is_invisible_active()
+		self.grid.draw(screen, self.grid_offset_x, self.grid_offset_y, hide_blocks=invisible)
 		self.lock_flash_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
-		self.hard_drop_lines.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
-		if self.game_over == False:
+		if not invisible:
+			self.hard_drop_lines.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
+		if self.game_over == False and not invisible:
 			self.draw_current_block_clipped(screen, self.grid_offset_x, self.grid_offset_y)
 
 		self.draw_next_block_preview(screen)
-
-		if self.is_invisible_active():
-			self.draw_invisibility_overlay(screen)
 
 	def draw_next_block_preview(self, screen):
 		tiles = self.next_block.get_cell_positions()
@@ -363,16 +361,6 @@ class Game:
 		offset_x = self.next_preview_rect.x + (self.next_preview_rect.width - shape_width) // 2 - (min_col * tile_size)
 		offset_y = self.next_preview_rect.y + (self.next_preview_rect.height - shape_height) // 2 - (min_row * tile_size)
 		self.next_block.draw(screen, offset_x, offset_y)
-
-	def draw_invisibility_overlay(self, screen):
-		playfield_rect = pygame.Rect(
-			self.grid_offset_x,
-			self.grid_offset_y,
-			self.grid.num_cols * self.grid.cell_size,
-			self.grid.num_rows * self.grid.cell_size,
-		)
-		pygame.draw.rect(screen, Colors.dark_blue, playfield_rect)
-		pygame.draw.rect(screen, Colors.light_blue, self.next_preview_rect, 0, 10)
 
 	def set_layout(self, grid_x, grid_y, next_preview_rect):
 		self.grid_offset_x = grid_x
