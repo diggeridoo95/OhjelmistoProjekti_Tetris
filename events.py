@@ -67,3 +67,36 @@ class MoleEvent(LevelEvent):
         #optional status text support
         game.last_event_text = f"Mole dug {dig_count} hole{'s' if dig_count > 1 else ''}!"
         game.last_event_timer = 90
+
+
+class InvisibilityEvent(LevelEvent):
+    """Randomly hides all blocks for a short duration."""
+
+    def __init__(self, trigger_chance, duration_ms):
+        self.trigger_chance = trigger_chance
+        self.duration_ms = max(200, duration_ms)
+
+    def on_tick(self, game):
+        if game.game_over or game.is_level_transitioning():
+            return
+
+        # Do not re-trigger while current invisibility is still active.
+        if game.is_invisible_active():
+            return
+
+        if random.random() > self.trigger_chance:
+            return
+
+        # Collect all locked block cells for flash effect
+        flash_cells = []
+        for row in range(game.grid.num_rows):
+            for col in range(game.grid.num_cols):
+                if game.grid.grid[row][col] != 0:
+                    flash_cells.append((row, col))
+        
+        # Trigger invisibility with flash effect
+        game.trigger_invisibility(self.duration_ms)
+        if flash_cells:
+            game.lock_flash_effect.trigger(flash_cells, color=(200, 200, 255), flashes=2, duration_ms=300)
+        game.last_event_text = "Invisibility!"
+        game.last_event_timer = 90
