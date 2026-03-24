@@ -122,6 +122,13 @@ while True:
 					game.use_bomb_ability()
 				if event.key == pygame.K_s and game.game_over == False and game.is_level_transitioning() == False:
 					game.use_magic_wand_ability()
+
+				
+				#if event.key == pygame.K_q:		#debug key to give player all abilities for testing
+					#game.has_bomb = True
+					#game.has_magic_wand = True
+
+
 			if event.type == GAME_UPDATE and game.game_over == False and game.is_level_transitioning() == False:
 				game.move_down()
 				game.update_level_events() 	#Update events on each game tick

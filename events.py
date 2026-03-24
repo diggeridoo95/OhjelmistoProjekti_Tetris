@@ -1,4 +1,5 @@
 import random
+import pygame
 
 class LevelEvent:
     """Hook for optional level-specific mechanics."""
@@ -34,18 +35,44 @@ class GarbageRows(LevelEvent):
 class MoleEvent(LevelEvent):
     """Randomly removes 1-3 occupied cells from the locked grid"""
 
-    def __init__(self, trigger_chance=0.02, min_digs=1, max_digs=3): #Setting trigger chance and amount of holes dug (1-3)
+    def __init__(self, trigger_chance=0.35, min_digs=1, max_digs=3,
+                 check_interval_ms=4000,        #How often to check for triggering the event (ms)
+                 cooldown_ms=10000,      #Cooldown period after triggering (ms)
+                 min_filled_cells=8     #minimum number of filled cells required to trigger
+                 ):
         self.trigger_chance = trigger_chance                        #trigger mechanism to be changed later and to have cooldowns
         self.min_digs = min_digs
         self.max_digs = max_digs
-    
+        self.check_interval_ms = check_interval_ms
+        self.cooldown_ms = cooldown_ms
+        self.min_filled_cells = min_filled_cells
+
+        self.next_check_ms = 0
+        self.cooldown_until_ms = 0
+
+    def on_level_start(self, game):
+        now = pygame.time.get_ticks()
+        self.next_check_ms = now + self.check_interval_ms
+        self.cooldown_until_ms = 0
+        
+
     def on_tick(self, game):
         if game.game_over or game.is_level_transitioning():   #Cant trigger if game is over or transitioning between levels
             return
         
-        #Random decimal between 0 and 1, if above trigger chance, do not trigger
-        if random.random() > self.trigger_chance:
+        now = pygame.time.get_ticks()
+
+        if now < self.cooldown_until_ms:     #Check if we're still in cooldown period
             return
+
+        if now < self.next_check_ms:     #Check if it's time to check for triggering the event
+            return
+        
+        self.next_check_ms = now + self.check_interval_ms   #Schedule next check
+
+        if random.random() > self.trigger_chance:       #roll for trigger
+            return
+        
         
         filled_cells = []       #Collect all occupied cells in the grid
         for row in range(game.grid.num_rows):
@@ -53,7 +80,19 @@ class MoleEvent(LevelEvent):
                 if game.grid.grid[row][col] != 0:   #if cell value is not 0, added to list of filled cells
                     filled_cells.append((row, col))
 
-        if not filled_cells:        #cant trigger if no valid cells
+        bottom_row = game.grid.num_rows -1
+        second_bottom_row = game.grid.num_rows -2
+
+        filled_cells = [
+            (row, col)
+            for row, col in filled_cells
+            if row not in (bottom_row, second_bottom_row)   #protect bottom 2 rows from digging
+        ]
+
+        if len(filled_cells) < self.min_filled_cells:        #cant trigger if not enough valid cells
+            return
+        
+        if not filled_cells:    #safety check
             return
         
         dig_count = random.randint(self.min_digs, self.max_digs)  #random amount of hole between min and max
@@ -63,10 +102,14 @@ class MoleEvent(LevelEvent):
 
         for row, col in chosen_cells:
             game.grid.grid[row][col] = 0
+            
+        game.mole_pop_effect.trigger(chosen_cells)   #trigger pop effect on dug cells
         
         #optional status text support
         game.last_event_text = f"Mole dug {dig_count} hole{'s' if dig_count > 1 else ''}!"
         game.last_event_timer = 90
+
+        self.cooldown_until_ms = now + self.cooldown_ms   #enter cooldown after triggering
 
 
 class InvisibilityEvent(LevelEvent):

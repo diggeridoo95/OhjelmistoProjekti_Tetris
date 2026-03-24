@@ -16,7 +16,7 @@ def get_levels() -> list[Level]:
 			drop_interval_ms=180,
 			events=[
 				GarbageRows(2),
-				MoleEvent(trigger_chance=0.09),  # much higher trigger chance for testing
+				MoleEvent(trigger_chance=0.35, cooldown_ms=10000),
 				InvisibilityEvent(trigger_chance=0.002, duration_ms=1000),
 			]
 		),
@@ -25,7 +25,7 @@ def get_levels() -> list[Level]:
 			target_score=1500,
 			time_limit_seconds=100,
 			drop_interval_ms=165,
-			events=[GarbageRows(3), InvisibilityEvent(trigger_chance=0.0025, duration_ms=1200)],
+			events=[GarbageRows(3),InvisibilityEvent(trigger_chance=0.0025, duration_ms=1200)],
 		),
 		Level(
 			number=4,
