@@ -1,9 +1,9 @@
 from grid import Grid
 from blocks import *
-from abilities import BombAbility
+from abilities import BombAbility, MagicWandAbility
 from levels import get_levels
 from inversion import InversionController
-from effects import SpeedLines, CellFlashEffect
+from effects import SpeedLines, CellFlashEffect, MagicWandEffect
 import random
 import pygame
 
@@ -40,12 +40,15 @@ class Game:
 		self.last_event_timer = 0
 		self.hard_drop_lines = SpeedLines()
 		self.lock_flash_effect = CellFlashEffect()
+		self.magic_wand_effect = MagicWandEffect()
 		
 		
 		# Ability system
 		self.bomb_ability = BombAbility()
+		self.magic_wand_ability = MagicWandAbility()
 		self.bomb_active = False  # Flag indicating bomb is active for next block
 		self.has_bomb = False  # Flag indicating player owns bomb ability
+		self.has_magic_wand = False  # Flag indicating player owns magic wand ability
 		self.last_block_position = None  # Track position of last locked block for bomb explosion
 
 		#self.apply_level(1)  # Start at level 2 for testing purposes
@@ -65,6 +68,7 @@ class Game:
 		# Preserve unused abilities when moving to next level.
 		preserved_has_bomb = self.has_bomb
 		preserved_bomb_active = self.bomb_active
+		preserved_has_magic_wand = self.has_magic_wand
 
 		self.current_level_index = level_index
 		self.current_level = self.levels[self.current_level_index]
@@ -83,6 +87,7 @@ class Game:
 
 		self.has_bomb = preserved_has_bomb
 		self.bomb_active = preserved_bomb_active
+		self.has_magic_wand = preserved_has_magic_wand
 
 		for event in self.current_level.events:
 			event.on_level_start(self)
@@ -243,6 +248,9 @@ class Game:
 			# Grant bomb ability on Tetris (4 row clear)
 			if rows_cleared == 4:
 				self.has_bomb = True
+			# Grant magic wand on 3-line clear
+			if rows_cleared == 3:
+				self.has_magic_wand = True
 
 		# Let inversion controller track lock count and auto-disable event
 		was_inverted = self.inversion.inverted_gravity
@@ -269,6 +277,12 @@ class Game:
 			self.bomb_ability.activate(self)
 			return True
 		return False
+
+	def use_magic_wand_ability(self):
+		"""Use magic wand ability immediately."""
+		if not self.has_magic_wand:
+			return False
+		return self.magic_wand_ability.activate(self)
 	
 	def reset(self):
 		self.grid.reset()
@@ -289,17 +303,13 @@ class Game:
 		self.invisible_until_ms = 0
 		self.bomb_active = False
 		self.has_bomb = False
+		self.has_magic_wand = False
 		self.last_block_position = None		
 		self.hard_drop_lines.clear()
 		self.lock_flash_effect.clear()
+		self.magic_wand_effect.clear()
 		# Reset inversion event state on game reset
 		self.inversion.reset_state()
-
-	def trigger_invisibility(self, duration_ms=1000):
-		self.invisible_until_ms = pygame.time.get_ticks() + max(0, duration_ms)
-
-	def is_invisible_active(self):
-		return pygame.time.get_ticks() < self.invisible_until_ms
 
 	def trigger_invisibility(self, duration_ms=1000):
 		self.invisible_until_ms = pygame.time.get_ticks() + max(0, duration_ms)
@@ -337,6 +347,7 @@ class Game:
 		invisible = self.is_invisible_active()
 		self.grid.draw(screen, self.grid_offset_x, self.grid_offset_y, hide_blocks=invisible)
 		self.lock_flash_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
+		self.magic_wand_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
 		if not invisible:
 			self.hard_drop_lines.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
 		if self.game_over == False and not invisible:

@@ -120,6 +120,8 @@ while True:
 					game.hard_drop()
 				if event.key == pygame.K_a and game.game_over == False and game.is_level_transitioning() == False:
 					game.use_bomb_ability()
+				if event.key == pygame.K_s and game.game_over == False and game.is_level_transitioning() == False:
+					game.use_magic_wand_ability()
 			if event.type == GAME_UPDATE and game.game_over == False and game.is_level_transitioning() == False:
 				game.move_down()
 				game.update_level_events() 	#Update events on each game tick
@@ -250,9 +252,15 @@ while True:
 		if game.has_bomb:
 			ability_text = "Bomb: Available" if not game.bomb_active else "Bomb: Active"
 			ability_color = Colors.white if not game.bomb_active else (255, 255, 0)  # Yellow when active
+			if game.has_magic_wand:
+				ability_text += " | Wand(S): Ready"
 		else:
-			ability_text = " "
-			ability_color = Colors.white
+			if game.has_magic_wand:
+				ability_text = "Wand(S): Ready"
+				ability_color = (200, 160, 255)
+			else:
+				ability_text = " "
+				ability_color = Colors.white
 		
 		ability_value_surface = small_font.render(ability_text, True, ability_color)
 		screen.blit(ability_value_surface, ability_value_surface.get_rect(centerx = ability_rect.centerx, 
