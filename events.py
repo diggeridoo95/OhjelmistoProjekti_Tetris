@@ -140,6 +140,6 @@ class InvisibilityEvent(LevelEvent):
         # Trigger invisibility with flash effect
         game.trigger_invisibility(self.duration_ms)
         if flash_cells:
-            game.lock_flash_effect.trigger(flash_cells, color=(200, 200, 255), flashes=2, duration_ms=300)
+            game.lock_flash_effect.trigger(flash_cells, color=(200, 200, 255), flashes=2, duration_ms=200)
         game.last_event_text = "Invisibility!"
         game.last_event_timer = 90

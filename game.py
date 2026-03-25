@@ -19,7 +19,7 @@ class Game:
 		
 		# pelikentän peilauksen määritykset 
 		#JOS HALUAT TESTATA ILMAN PEILAUSTA, ASETU TÄMÄN ARVOKSI 999
-		self.inversion = InversionController(interval_seconds=10, lock_target=3) 
+		self.inversion = InversionController(interval_seconds=30, lock_target=3) 
 		
 		self.current_block = self.spawn_current_block(self.get_random_block())
 		self.next_block = self.get_random_block()
@@ -56,7 +56,7 @@ class Game:
 		self.has_magic_wand = False  # Flag indicating player owns magic wand ability
 		self.last_block_position = None  # Track position of last locked block for bomb explosion
 
-		#self.apply_level(1)  # Start at level 2 for testing purposes
+		#self.apply_level(3)  # Start at level 2 for testing purposes
 							#Can be adjusted for further testing
 
 	def get_level_score(self):
@@ -72,7 +72,6 @@ class Game:
 	def apply_level(self, level_index):
 		# Preserve unused abilities when moving to next level.
 		preserved_has_bomb = self.has_bomb
-		preserved_bomb_active = self.bomb_active
 		preserved_has_magic_wand = self.has_magic_wand
 
 		self.current_level_index = level_index
@@ -91,7 +90,7 @@ class Game:
 		self.next_block = self.get_next_block()
 
 		self.has_bomb = preserved_has_bomb
-		self.bomb_active = preserved_bomb_active
+		self.bomb_active = False  # Reset temporary bomb_active state (blocks are reset anyway)
 		self.has_magic_wand = preserved_has_magic_wand
 
 		for event in self.current_level.events:
@@ -373,7 +372,7 @@ class Game:
 	
 	def draw(self, screen, hide_blocks=False):
 		invisible = self.is_invisible_active()
-		self.grid.draw(screen, self.grid_offset_x, self.grid_offset_y, hide_filled_blocks=hide_blocks)
+		self.grid.draw(screen, self.grid_offset_x, self.grid_offset_y, hide_blocks=invisible, hide_filled_blocks=hide_blocks)
 
 		if not hide_blocks:
 			self.bomb_explosion_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y, hide_blocks=invisible)
