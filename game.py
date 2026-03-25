@@ -40,6 +40,7 @@ class Game:
 		self.last_event_timer = 0
 		self.hard_drop_lines = SpeedLines()
 		self.lock_flash_effect = CellFlashEffect()
+		self.row_clear_flash_effect = CellFlashEffect(duration_ms=320, flashes=2)
 		self.magic_wand_effect = MagicWandEffect()
 		self.mole_pop_effect = MolePopEffect()
 		
@@ -240,8 +241,26 @@ class Game:
 		if tiles:
 			self.last_block_position = tiles[0]
 
-		rows_cleared = self.grid.clear_full_rows()
 		
+		full_rows = self.grid.get_full_rows()
+
+		if full_rows:
+			row_flash_cells = [
+				(row, col)
+				for row in full_rows
+				for col in range(self.grid.num_cols)
+			]
+
+			self.row_clear_flash_effect.trigger(
+				row_flash_cells,
+				color=(255, 240, 120),
+				flashes=3,
+				duration_ms=340,
+			)
+		
+
+		rows_cleared = self.grid.clear_full_rows()
+
 		if rows_cleared > 0:
 
 			#self.lock_flash_effect.clear() #jos ei haluta välähdystä silloin, kun rivi poistuu
@@ -308,6 +327,7 @@ class Game:
 		self.last_block_position = None		
 		self.hard_drop_lines.clear()
 		self.lock_flash_effect.clear()
+		self.row_clear_flash_effect.clear()
 		self.magic_wand_effect.clear()
 		# Reset inversion event state on game reset
 		self.inversion.reset_state()
@@ -348,6 +368,7 @@ class Game:
 		invisible = self.is_invisible_active()
 		self.grid.draw(screen, self.grid_offset_x, self.grid_offset_y, hide_blocks=invisible)
 		self.lock_flash_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
+		self.row_clear_flash_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
 		self.magic_wand_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
 		self.mole_pop_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
 		if not invisible:

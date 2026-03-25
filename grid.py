@@ -28,6 +28,13 @@ class Grid:
 
         return [dark_grey, green, red, orange, yellow, purple, cyan, blue]
     
+    def get_full_rows(self):
+        full_rows = []
+        for row in range(self.num_rows):
+            if all (self.grid[row][column] != 0 for column in range(self.num_cols)):
+                full_rows.append(row)
+        return full_rows
+
     def is_inside(self, row, column):
         if row >= 0 and row < self.num_rows and column >= 0 and column < self.num_cols:
             return True
