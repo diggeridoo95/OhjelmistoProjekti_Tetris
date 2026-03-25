@@ -182,11 +182,11 @@ class CellFlashEffect:
             pygame.draw.rect(screen, self.flash_color, tile_rect)
 
 
-class BombExplosionEffect:
-    def __init__(self, duration_ms=280):
-        self.duration_ms = max(80, duration_ms)
-        self.active_until = 0
+class MagicWandEffect:
+    def __init__(self, duration_ms=420):
+        self.duration_ms = max(120, duration_ms)
         self.started_at = 0
+        self.active_until = 0
         self.cells = []
 
     def trigger(self, cells):
@@ -207,19 +207,9 @@ class BombExplosionEffect:
         self.active_until = self.started_at + self.duration_ms
 
     def clear(self):
-        self.active_until = 0
         self.started_at = 0
+        self.active_until = 0
         self.cells = []
-
-    def remap_vertical_flip(self, row_count):
-        if not self.cells:
-            return
-
-        max_row = row_count - 1
-        remapped = []
-        for row, col in self.cells:
-            remapped.append((max_row - row, col))
-        self.cells = remapped
 
     def draw(self, screen, cell_size, offset_x, offset_y):
         if not self.cells:
@@ -232,65 +222,246 @@ class BombExplosionEffect:
 
         progress = (now - self.started_at) / self.duration_ms
         progress = max(0.0, min(1.0, progress))
-        fade = 1.0 - progress
 
-        spark_alpha = int(230 * fade)
-        glow_alpha = int(150 * fade)
-        ring_alpha = int(200 * fade)
+        # Two expanding rings plus a center glow for a wand-like burst.
+        ring1 = max(2, int(round(cell_size * (0.18 + 0.42 * progress))))
+        ring2 = max(2, int(round(cell_size * (0.08 + 0.62 * progress))))
+        inner = max(1, int(round(cell_size * (0.1 + 0.2 * (1.0 - progress)))))
+        thickness = max(1, int(round(cell_size * 0.08)))
+
+        fade = 1.0 - progress
+        ring_color = (
+            int(220 * fade),
+            int(170 * fade),
+            int(255 * fade),
+        )
+        glow_color = (
+            int(255 * fade),
+            int(230 * fade),
+            int(255 * fade),
+        )
 
         for row, col in self.cells:
+            cx = offset_x + col * cell_size + (cell_size // 2)
+            cy = offset_y + row * cell_size + (cell_size // 2)
+
+            pygame.draw.circle(screen, ring_color, (cx, cy), ring1, thickness)
+            pygame.draw.circle(screen, ring_color, (cx, cy), ring2, thickness)
+            pygame.draw.circle(screen, glow_color, (cx, cy), inner)
+
+class MolePopEffect:
+    def __init__(self, duration_ms=600):
+        self.duration_ms = max(200, duration_ms)
+        self.pops = []
+
+    def trigger(self, cells):
+        now = pygame.time.get_ticks()
+
+        for cell in cells:
+            if hasattr(cell, "row") and hasattr(cell, "column"):
+                row, col = cell.row, cell.column
+            else:
+                row, col = cell
+
+            self.pops.append({
+                "row": int(row),
+                "col": int(col),
+                "start": now,
+            })
+
+    def clear(self):
+        self.pops = []
+
+    def draw(self, screen, cell_size, offset_x, offset_y):
+        if not self.pops:
+            return
+
+        now = pygame.time.get_ticks()
+        active_pops = []
+
+        for pop in self.pops:
+            elapsed = now - pop["start"]
+            if elapsed >= self.duration_ms:
+                continue
+
+            active_pops.append(pop)
+
+            progress = elapsed / self.duration_ms
+
+            # Rise -> short hold -> sink
+            if progress < 0.4:
+                visible_amount = progress / 0.4
+            elif progress < 0.7:
+                visible_amount = 1.0
+            else:
+                visible_amount = max(0.0, 1.0 - ((progress - 0.7) / 0.3))
+
+            row = pop["row"]
+            col = pop["col"]
+
             x = offset_x + col * cell_size
             y = offset_y + row * cell_size
-            size = max(1, cell_size - 1)
 
-            fx = pygame.Surface((size, size), pygame.SRCALPHA)
-            cx = size // 2
-            cy = size // 2
+            # Small hole near bottom of the target cell
+            hole_w = int(cell_size * 0.58)
+            hole_h = max(4, int(cell_size * 0.16))
+            hole_x = x + (cell_size - hole_w) // 2
+            hole_y = y + int(cell_size * 0.72)
 
-            outer_r = max(3, int(size * (0.20 + 0.45 * progress)))
-            inner_r = max(2, int(size * (0.10 + 0.22 * progress)))
-            ring_w = max(1, int(size * 0.08))
+            pygame.draw.ellipse(
+                screen,
+                (30, 20, 10),
+                (hole_x, hole_y, hole_w, hole_h)
+            )
 
-            pygame.draw.circle(fx, (255, 140, 40, glow_alpha), (cx, cy), outer_r)
-            pygame.draw.circle(fx, (255, 230, 120, spark_alpha), (cx, cy), inner_r)
-            pygame.draw.circle(fx, (255, 250, 220, ring_alpha), (cx, cy), outer_r, ring_w)
+            # Mole body rises from the hole
+            mole_w = int(cell_size * 0.56)
+            max_mole_h = int(cell_size * 0.65)
+            mole_h = max(1, int(max_mole_h * visible_amount))
 
-            screen.blit(fx, (x, y))
+            mole_x = x + (cell_size - mole_w) // 2
+            mole_y = hole_y - mole_h + 2
+
+            # Body
+            pygame.draw.rect(
+                screen,
+                (125, 88, 55),
+                (mole_x, mole_y, mole_w, mole_h)
+            )
+
+            # Head top
+            head_h = max(2, int(mole_h * 0.35))
+            pygame.draw.rect(
+                screen,
+                (145, 104, 68),
+                (mole_x + 2, mole_y, max(2, mole_w - 4), head_h)
+            )
+
+            # Eyes
+            if mole_h > 6:
+                eye_size = max(1, cell_size // 12)
+                eye_y = mole_y + max(1, head_h // 2)
+                pygame.draw.rect(screen, (0, 0, 0), (mole_x + 4, eye_y, eye_size, eye_size))
+                pygame.draw.rect(screen, (0, 0, 0), (mole_x + mole_w - 4 - eye_size, eye_y, eye_size, eye_size))
+
+            # Nose
+            if mole_h > 8:
+                nose_w = max(2, cell_size // 8)
+                nose_h = max(2, cell_size // 10)
+                nose_x = mole_x + (mole_w - nose_w) // 2
+                nose_y = mole_y + head_h + 1
+                pygame.draw.rect(screen, (220, 120, 140), (nose_x, nose_y, nose_w, nose_h))
+
+        self.pops = active_pops
 
 
-class InversionFlashEffect:
-    """Simple flash effect that plays when gravity inverts."""
-    
-    def __init__(self, duration_ms=500):
-        self.duration_ms = duration_ms
-        self.active_until = 0
+class BombExplosionEffect:
+    def __init__(self, duration_ms=260):
+        self.duration_ms = max(120, duration_ms)
         self.started_at = 0
-    
-    def trigger(self):
+        self.active_until = 0
+        self.cells = []
+
+    def trigger(self, cells):
+        norm = []
+        for cell in cells:
+            if hasattr(cell, "row") and hasattr(cell, "column"):
+                row, col = cell.row, cell.column
+            else:
+                row, col = cell
+            norm.append((int(row), int(col)))
+
+        if not norm:
+            self.clear()
+            return
+
+        self.cells = list(dict.fromkeys(norm))
         self.started_at = pygame.time.get_ticks()
         self.active_until = self.started_at + self.duration_ms
-    
+
     def clear(self):
-        self.active_until = 0
         self.started_at = 0
-    
-    def draw(self, screen, screen_width, screen_height):
-        if self.active_until == 0:
+        self.active_until = 0
+        self.cells = []
+
+    def remap_vertical_flip(self, row_count):
+        if not self.cells:
             return
-        
+
+        max_row = row_count - 1
+        remapped = []
+        for row, col in self.cells:
+            remapped.append((max_row - row, col))
+        self.cells = remapped
+
+    def draw(self, screen, cell_size, offset_x, offset_y, hide_blocks=False):
+        if not self.cells:
+            return
+
         now = pygame.time.get_ticks()
         if now >= self.active_until:
             self.clear()
             return
-        
+
         progress = (now - self.started_at) / self.duration_ms
         progress = max(0.0, min(1.0, progress))
-        
-        # Fade out over time - stronger and more visible
-        alpha = int(180 * (1.0 - progress))
-        
-        # Create a semi-transparent overlay with a bright cyan/purple tint
-        overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
-        overlay.fill((150, 100, 255, alpha))
-        screen.blit(overlay, (0, 0))
+        fade = 1.0 - progress
 
+        ring_color = (
+            int(255 * fade),
+            int(180 * fade),
+            int(70 * fade),
+        )
+        core_color = (
+            int(255 * fade),
+            int(240 * fade),
+            int(120 * fade),
+        )
+
+        for row, col in self.cells:
+            cx = offset_x + col * cell_size + (cell_size // 2)
+            cy = offset_y + row * cell_size + (cell_size // 2)
+
+            base_radius = max(2, int(round(cell_size * 0.18)))
+            ring_radius = base_radius + int(round(cell_size * 0.7 * progress))
+            core_radius = max(1, int(round(cell_size * 0.2 * fade)))
+            thickness = max(1, int(round(cell_size * 0.1)))
+
+            pygame.draw.circle(screen, ring_color, (cx, cy), ring_radius, thickness)
+            if not hide_blocks:
+                pygame.draw.circle(screen, core_color, (cx, cy), core_radius)
+
+
+class InversionFlashEffect:
+    def __init__(self, duration_ms=300):
+        self.duration_ms = max(120, duration_ms)
+        self.started_at = 0
+        self.active_until = 0
+
+    def trigger(self):
+        self.started_at = pygame.time.get_ticks()
+        self.active_until = self.started_at + self.duration_ms
+
+    def clear(self):
+        self.started_at = 0
+        self.active_until = 0
+
+    def draw(self, screen, screen_width, screen_height):
+        if self.active_until == 0:
+            return
+
+        now = pygame.time.get_ticks()
+        if now >= self.active_until:
+            self.clear()
+            return
+
+        progress = (now - self.started_at) / self.duration_ms
+        progress = max(0.0, min(1.0, progress))
+
+        # Short full-screen flash to make gravity inversion state change obvious.
+        pulse = 1.0 - abs(0.5 - progress) * 2.0
+        alpha = int(110 * pulse)
+
+        overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+        overlay.fill((180, 235, 255, alpha))
+        screen.blit(overlay, (0, 0))

@@ -144,8 +144,15 @@ while True:
 					game.hard_drop()
 				if event.key == pygame.K_a and game.game_over == False and game.is_level_transitioning() == False:
 					game.use_bomb_ability()
-				if event.key == pygame.K_1 and game.game_over == False and game.is_level_transitioning() == False:
-					game.trigger_invisibility(1000)
+				if event.key == pygame.K_s and game.game_over == False and game.is_level_transitioning() == False:
+					game.use_magic_wand_ability()
+
+				
+				if event.key == pygame.K_q:		#debug key to give player all abilities for testing
+					game.has_bomb = True
+					game.has_magic_wand = True
+
+
 			if event.type == GAME_UPDATE and game.game_over == False and game.is_level_transitioning() == False and game_paused == False:
 				game.move_down()
 				game.update_level_events() 	#Update events on each game tick
@@ -291,12 +298,18 @@ while True:
 				offset_x = ability_rect.x + (ability_rect.width - shape_width) // 2 - (min_col * tile_size)
 				offset_y = ability_rect.y + (ability_rect.height - shape_height) // 2 - (min_row * tile_size)
 				bomb_block.draw(screen, offset_x, offset_y)
+			if game.has_magic_wand:
+				ability_text += " | Wand(S): Ready"
 		else:
-			# Show "No Ability" text when bomb is not available
-			ability_text = "No Ability"
-			ability_color = Colors.white
-			ability_value_surface = small_font.render(ability_text, True, ability_color)
-			screen.blit(ability_value_surface, ability_value_surface.get_rect(centerx = ability_rect.centerx, 
+			if game.has_magic_wand:
+				ability_text = "Wand(S): Ready"
+				ability_color = (200, 160, 255)
+			else:
+				# Show "No Ability" text when bomb is not available
+				ability_text = "No Ability"
+				ability_color = Colors.white
+				ability_value_surface = small_font.render(ability_text, True, ability_color)
+				screen.blit(ability_value_surface, ability_value_surface.get_rect(centerx = ability_rect.centerx,
 			                                                                     centery = ability_rect.centery))
 
 		game.draw(screen, hide_blocks=game_paused)
