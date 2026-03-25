@@ -24,9 +24,23 @@ class GarbageRows(LevelEvent):
 
             for row in range(0, rows -1):
                 game.grid.grid[row] = game.grid.grid[row +1][:]
-            
-            fill_value = random.randint(1,7)
-            new_row = [fill_value for j in range(cols)]
+
+            new_row = []
+            for j in range(cols):
+                available_colors = set(range(1, 8))
+                if j > 0:
+                    available_colors.discard(new_row[j-1])
+
+                if rows - 2 >= 0:
+                    cell_above = game.grid.grid[rows - 2][j]
+                    if cell_above != 0:
+                        available_colors.discard(cell_above)
+
+                if available_colors:
+                    new_row.append(random.choice(list(available_colors)))
+                else:
+                    # Fallback if no colors available
+                    new_row.append(random.randint(1, 7))
             hole_count = min(self.holes_per_row, cols -1)
             for hole_col in random.sample(range(cols), k=hole_count):
                 new_row[hole_col] = 0

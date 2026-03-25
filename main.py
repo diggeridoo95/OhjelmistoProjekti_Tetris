@@ -260,23 +260,41 @@ while True:
 		)
 		pygame.draw.rect(screen, Colors.dark_grey, playfield_bg_rect, 0, max(6, int(10 * ui_scale)))
 		pygame.draw.rect(screen, Colors.light_blue, playfield_bg_rect, max(1, int(2 * ui_scale)), max(6, int(10 * ui_scale)))
+
+		score_shadow = title_font.render("Score", True, Colors.dark_grey)
+		screen.blit(score_shadow, score_shadow.get_rect(center=(score_rect.centerx + 2, int(30 * ui_scale) + 2)))
 		screen.blit(score_surface, score_surface.get_rect(center=(score_rect.centerx, int(30 * ui_scale))))
+
+		next_shadow = title_font.render("Next", True, Colors.dark_grey)
+		screen.blit(next_shadow, next_shadow.get_rect(center=(next_rect.centerx + 2, int(160 * ui_scale) + 2)))
 		screen.blit(next_surface, next_surface.get_rect(center=(next_rect.centerx, int(160 * ui_scale))))
+
+		ability_shadow = title_font.render("Ability", True, Colors.dark_grey)
+		screen.blit(ability_shadow, ability_shadow.get_rect(center=(ability_rect.centerx + 2, int(385 * ui_scale) + 2)))
 		screen.blit(ability_surface, ability_surface.get_rect(center=(ability_rect.centerx, int(385 * ui_scale))))
+
+		level_shadow = title_font.render("Level", True, Colors.dark_grey)
+		screen.blit(level_shadow, level_shadow.get_rect(center=(level_value_rect.centerx + 2, level_value_rect.top - left_label_gap + 2)))
 		screen.blit(level_surface, level_surface.get_rect(center=(level_value_rect.centerx, level_value_rect.top - left_label_gap)))
+
+		goal_shadow = title_font.render("Goal", True, Colors.dark_grey)
+		screen.blit(goal_shadow, goal_shadow.get_rect(center=(goal_value_rect.centerx + 2, goal_value_rect.top - left_label_gap + 2)))
 		screen.blit(goal_surface, goal_surface.get_rect(center=(goal_value_rect.centerx, goal_value_rect.top - left_label_gap)))
+
+		time_shadow = title_font.render("Time", True, Colors.dark_grey)
+		screen.blit(time_shadow, time_shadow.get_rect(center=(time_value_rect.centerx + 2, time_value_rect.top - left_label_gap + 2)))
 		screen.blit(time_text_surface, time_text_surface.get_rect(center=(time_value_rect.centerx, time_value_rect.top - left_label_gap)))
 
-		pygame.draw.rect(screen, Colors.light_blue2, score_rect, 0, max(6, int(10 * ui_scale)))
+		pygame.draw.rect(screen, Colors.dark_grey, score_rect, 0, max(6, int(10 * ui_scale)))
 		screen.blit(score_value_surface, score_value_surface.get_rect(centerx = score_rect.centerx, 
 		                                                                  centery = score_rect.centery))
-		pygame.draw.rect(screen, Colors.light_blue2, next_rect, 0, max(6, int(10 * ui_scale)))
-		pygame.draw.rect(screen, Colors.light_blue2, ability_rect, 0, max(6, int(10 * ui_scale)))
-		pygame.draw.rect(screen, Colors.light_blue2, level_value_rect, 0, max(6, int(10 * ui_scale)))
+		pygame.draw.rect(screen, Colors.dark_grey, next_rect, 0, max(6, int(10 * ui_scale)))
+		pygame.draw.rect(screen, Colors.dark_grey, ability_rect, 0, max(6, int(10 * ui_scale)))
+		pygame.draw.rect(screen, Colors.dark_grey, level_value_rect, 0, max(6, int(10 * ui_scale)))
 		screen.blit(level_value_surface, level_value_surface.get_rect(center=level_value_rect.center))
-		pygame.draw.rect(screen, Colors.light_blue2, goal_value_rect, 0, max(6, int(10 * ui_scale)))
+		pygame.draw.rect(screen, Colors.dark_grey, goal_value_rect, 0, max(6, int(10 * ui_scale)))
 		screen.blit(goal_value_surface, goal_value_surface.get_rect(center=goal_value_rect.center))
-		pygame.draw.rect(screen, Colors.light_blue2, time_value_rect, 0, max(6, int(10 * ui_scale)))
+		pygame.draw.rect(screen, Colors.dark_grey, time_value_rect, 0, max(6, int(10 * ui_scale)))
 		screen.blit(time_surface, time_surface.get_rect(center=time_value_rect.center))
 		
 		# Display ability status
@@ -332,14 +350,33 @@ while True:
 		)
 		overlay_bg.centerx = layout["grid_x"] + (layout["grid_w"] // 2)
 
-		if game.game_over == True:
-			overlay_text_surface = you_won_surface if game.game_won else game_over_surface
-			pygame.draw.rect(screen, Colors.light_blue2, overlay_bg, 0, max(10, int(16 * ui_scale)))
-			screen.blit(overlay_text_surface, overlay_text_surface.get_rect(center=overlay_bg.center))
-		elif game.is_level_transitioning():
-			overlay_text_surface = transition_font.render(game.get_transition_text(), True, Colors.white)
-			pygame.draw.rect(screen, Colors.light_blue2, overlay_bg, 0, max(10, int(16 * ui_scale)))
-			screen.blit(overlay_text_surface, overlay_text_surface.get_rect(center=overlay_bg.center))
+		# TASONVAIHTO JA GAME OVER/YOU WIN RUUTU ULKONÄKÖ
+		if game.game_over == True or game.is_level_transitioning():
+			dim_surface = pygame.Surface((window_w, window_h), pygame.SRCALPHA)
+			dim_surface.fill((0, 0, 0, 120))
+			screen.blit(dim_surface, (0,0))
+
+			overlay_surface = pygame.Surface((overlay_bg.width, overlay_bg.height), pygame.SRCALPHA)
+			pygame.draw.rect(overlay_surface, (255, 255, 255,100), overlay_surface.get_rect(), border_radius=14)
+			screen.blit(overlay_surface, (overlay_bg.x, overlay_bg.y))
+			pygame.draw.rect(screen, Colors.light_blue, overlay_bg, max (2, int(3 * ui_scale)),14)
+
+			if game.game_over == True:
+				if game.game_won:
+					overlay_text_surface = you_won_surface
+					shadow_text = "You Won!"
+				else:
+					overlay_text_surface = game_over_surface
+					shadow_text = "Game Over!"
+					shadow_surface = title_font.render(shadow_text, True, Colors.dark_grey)
+					screen.blit(shadow_surface, shadow_surface.get_rect(center=(overlay_bg.centerx + 2, overlay_bg.centery +2)))
+					screen.blit(overlay_text_surface, overlay_text_surface.get_rect(center=overlay_bg.center))
+			elif game.is_level_transitioning():
+				transition_text = game.get_transition_text()
+				overlay_text_surface = transition_font.render(game.get_transition_text(), True, Colors.white)
+				shadow_surface = transition_font.render(game.get_transition_text(), True, Colors.dark_grey)
+				screen.blit(shadow_surface, shadow_surface.get_rect(center=(overlay_bg.centerx + 2, overlay_bg.centery +2)))
+				screen.blit(overlay_text_surface, overlay_text_surface.get_rect(center=overlay_bg.center))
 
 		if game_paused and pause_menu is not None:
 			pause_menu.draw(screen)
