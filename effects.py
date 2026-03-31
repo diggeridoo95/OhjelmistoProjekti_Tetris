@@ -131,6 +131,24 @@ class CellFlashEffect:
         self.started_at = 0
         self.flash_cells = []
 
+    def is_active(self):
+        return self.active_until > 0 and pygame.time.get_ticks() < self.active_until
+
+    def is_visible_now(self):
+        if not self.flash_cells:
+            return False
+
+        now = pygame.time.get_ticks()
+        if now >= self.active_until:
+            self.clear()
+            return False
+
+        elapsed = now - self.started_at
+        phase_count = self.flashes * 2
+        phase_duration = max(1, self.duration_ms / phase_count)
+        phase_index = int(elapsed / phase_duration)
+        return phase_index % 2 == 0
+
     def remap_vertical_flip(self, row_count):
         if not self.flash_cells:
             return
@@ -144,29 +162,13 @@ class CellFlashEffect:
 
         self.flash_cells = new_cells
 
-    def draw(self, screen, cell_size, offset_x, offset_y):
-        if not self.flash_cells:
-            return
-
-        now = pygame.time.get_ticks()
-
-        if now >= self.active_until:
-            self.clear()
-            return
-
-        elapsed = now - self.started_at
-
-        phase_count = self.flashes * 2
-        phase_duration = max(1, self.duration_ms / phase_count)
-
-        phase_index = int(elapsed / phase_duration)
-
-        if phase_index % 2 == 0:
-            visible = True
+    def draw(self, screen, cell_size, offset_x, offset_y, visible_override=None):
+        if visible_override is None:
+            visible_now = self.is_visible_now()
         else:
-            visible = False
+            visible_now = bool(visible_override)
 
-        if not visible:
+        if not visible_now:
             return
 
         for row, col in self.flash_cells:

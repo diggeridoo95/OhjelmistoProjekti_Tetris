@@ -153,6 +153,8 @@ while True:
 				if event.key == pygame.K_q:		#debug key to give player all abilities for testing
 					game.has_bomb = True
 					game.has_magic_wand = True
+				if event.key == pygame.K_i:		#debug key to test invisibility pre-flash sequence
+					game.trigger_invisibility_test()
 
 
 			if event.type == GAME_UPDATE and game.game_over == False and game.is_level_transitioning() == False and game_paused == False:
