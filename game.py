@@ -5,6 +5,7 @@ from levels import get_levels
 from inversion import InversionController
 from bomb_icon import draw_bomb_cell
 from effects import SpeedLines, CellFlashEffect, MagicWandEffect, MolePopEffect, BombExplosionEffect, InversionFlashEffect
+from colors import Colors
 import random
 import pygame
 
@@ -37,11 +38,13 @@ class Game:
 		self.level_transition_ms_left = 0
 		self.pending_level_index = None
 		self.invisible_until_ms = 0
+		self.invisible_start_ms = 0
 		self.last_event_text = ""
 		self.last_event_timer = 0
 		self.hard_drop_lines = SpeedLines()
 		self.lock_flash_effect = CellFlashEffect()
 		self.row_clear_flash_effect = CellFlashEffect(duration_ms=320, flashes=2)
+		self.invisibility_preflash_effect = CellFlashEffect(duration_ms=1300, flashes=3)
 		self.magic_wand_effect = MagicWandEffect(duration_ms=620)
 		self.mole_pop_effect = MolePopEffect()
 		self.bomb_explosion_effect = BombExplosionEffect()
@@ -328,6 +331,7 @@ class Game:
 		self.pending_level_index = None
 		self.level_transition_ms_left = 0
 		self.invisible_until_ms = 0
+		self.invisible_start_ms = 0
 		self.bomb_active = False
 		self.has_bomb = False
 		self.has_magic_wand = False
@@ -335,14 +339,72 @@ class Game:
 		self.hard_drop_lines.clear()
 		self.lock_flash_effect.clear()
 		self.row_clear_flash_effect.clear()
+		self.invisibility_preflash_effect.clear()
 		self.magic_wand_effect.clear()
 		self.bomb_explosion_effect.clear()
 
-	def trigger_invisibility(self, duration_ms=1000):
-		self.invisible_until_ms = pygame.time.get_ticks() + max(0, duration_ms)
+	def get_invisibility_flash_cells(self):
+		"""Collect only locked grid cells for pre-invisibility flashing."""
+		flash_cells = []
+		for row in range(self.grid.num_rows):
+			for col in range(self.grid.num_cols):
+				if self.grid.grid[row][col] != 0:
+					flash_cells.append((row, col))
+
+		return list(dict.fromkeys(flash_cells))
+
+	def draw_current_block_preflash(self, screen, visible_override=None):
+		"""Draw a live flash overlay on the moving block to avoid static ghost trails."""
+		if self.current_block is None:
+			return
+		if visible_override is None:
+			visible_now = self.invisibility_preflash_effect.is_visible_now()
+		else:
+			visible_now = bool(visible_override)
+		if not visible_now:
+			return
+
+		flash_color = self.invisibility_preflash_effect.flash_color
+		for tile in self.current_block.get_cell_positions():
+			if self.grid.is_inside(tile.row, tile.column):
+				tile_rect = pygame.Rect(
+					self.grid_offset_x + tile.column * self.current_block.cell_size,
+					self.grid_offset_y + tile.row * self.current_block.cell_size,
+					self.current_block.cell_size - 1,
+					self.current_block.cell_size - 1,
+				)
+				pygame.draw.rect(screen, flash_color, tile_rect)
+
+	def trigger_invisibility(self, duration_ms=1000, delay_ms=0):
+		now = pygame.time.get_ticks()
+		delay = max(0, delay_ms)
+		duration = max(0, duration_ms)
+		self.invisible_start_ms = now + delay
+		self.invisible_until_ms = self.invisible_start_ms + duration
 
 	def is_invisible_active(self):
-		return pygame.time.get_ticks() < self.invisible_until_ms
+		now = pygame.time.get_ticks()
+		return self.invisible_start_ms <= now < self.invisible_until_ms
+
+	def trigger_invisibility_test(self, duration_ms=1500, pre_flash_count=3, pre_flash_duration_ms=1300):
+		"""Debug helper: flash locked cells before forcing an invisibility window."""
+		if self.game_over or self.is_level_transitioning():
+			return False
+
+		flash_cells = self.get_invisibility_flash_cells()
+
+		self.trigger_invisibility(duration_ms=duration_ms, delay_ms=pre_flash_duration_ms)
+		if flash_cells:
+			self.invisibility_preflash_effect.trigger(
+				flash_cells,
+				color=(200, 200, 255),
+				flashes=max(1, pre_flash_count),
+				duration_ms=max(120, pre_flash_duration_ms),
+			)
+
+		self.last_event_text = "Invisibility Test!"
+		self.last_event_timer = 90
+		return True
 
 
 	def block_fits(self):
@@ -372,6 +434,7 @@ class Game:
 	
 	def draw(self, screen, hide_blocks=False):
 		invisible = self.is_invisible_active()
+		preflash_visible = self.invisibility_preflash_effect.is_visible_now()
 		self.grid.draw(screen, self.grid_offset_x, self.grid_offset_y, hide_blocks=invisible, hide_filled_blocks=hide_blocks)
 
 		if not hide_blocks:
@@ -385,11 +448,38 @@ class Game:
 			self.inversion_flash_effect.draw(screen, screen.get_width(), screen.get_height())
 		if self.game_over == False and not invisible:
 			self.draw_current_block_clipped(screen, self.grid_offset_x, self.grid_offset_y)
+			self.invisibility_preflash_effect.draw(
+				screen,
+				self.grid.cell_size,
+				self.grid_offset_x,
+				self.grid_offset_y,
+				visible_override=preflash_visible,
+			)
+			self.draw_current_block_preflash(screen, visible_override=preflash_visible)
 
+		if self.game_over == False and not hide_blocks:
 			self.draw_next_block_preview(screen)
 
-			if self.is_invisible_active():
-				self.draw_invisibility_overlay(screen)
+		if invisible:
+			self.draw_invisibility_overlay(screen)
+
+	def draw_invisibility_overlay(self, screen):
+		font = pygame.font.Font(None, 34)
+		text = font.render("INVISIBILITY", True, (220, 220, 255))
+		padding_x = 12
+		padding_y = 7
+		label_rect = text.get_rect(center=(screen.get_width() // 2, 48))
+		bg_rect = pygame.Rect(
+			label_rect.x - padding_x,
+			label_rect.y - padding_y,
+			label_rect.width + padding_x * 2,
+			label_rect.height + padding_y * 2,
+		)
+
+		bg = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+		bg.fill((*Colors.dark_grey, 170))
+		screen.blit(bg, bg_rect.topleft)
+		screen.blit(text, label_rect)
 
 	def draw_next_block_preview(self, screen):
 		tiles = self.next_block.get_cell_positions()
