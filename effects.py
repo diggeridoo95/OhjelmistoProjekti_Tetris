@@ -353,8 +353,14 @@ class MolePopEffect:
                     (body_x, body_top, body_w, body_h)
                 )
 
-            # Rounded head
-            head_rect = pygame.Rect(mole_x, mole_y, head_w, head_h)
+            # Round head
+            head_extra = int(head_h * 0.35)
+
+            head_rect = pygame.Rect(
+                mole_x, mole_y, head_w,
+                head_h + head_extra
+            )
+
             pygame.draw.ellipse(screen, head_color, head_rect)
 
 
@@ -379,27 +385,40 @@ class MolePopEffect:
                                    (right_eye_x - shine_r//2, eye_y - shine_r//2),
                                       shine_r)
                 
-                # Mouth
-                if mole_h > 10:
-                    mouth_w = max(6, int(mole_w * 0.42))
-                    mouth_h = max(3, int(head_h * 0.28))
+            # Mouth
+            if mole_h > 10:
+                mouth_w = max(10, int(mole_w * 0.60))
+                mouth_x = mole_x + (mole_w - mouth_w) // 2
+                mouth_y = mole_y + int(head_h * 1.05)
 
-                    mouth_x = mole_x + (mole_w - mouth_w) // 2
-                    mouth_y = mole_y + int(head_h * 0.78)
+                thickness = max(1, cell_size // 12)
 
-                    pygame.draw.rect(
-                        screen,
-                        (60, 20, 20),
-                        (mouth_x, mouth_y, mouth_w, mouth_h)
-                    )
+                # Bottom curve
+                pygame.draw.line(
+                    screen,
+                    (40, 10, 10),
+                    (mouth_x, mouth_y),
+                    (mouth_x + mouth_w, mouth_y),
+                    thickness
+                )
 
-                    # Simple teeth (top pixels)
-                    tooth_w = max(2, mouth_w // 4)
-                    pygame.draw.rect(
-                        screen,
-                        (230, 230, 230),
-                        (mouth_x + tooth_w, mouth_y, tooth_w, max(2, mouth_h // 2))
-                    )
+                # Left side
+                pygame.draw.line(
+                    screen,
+                    (40, 10, 10),
+                    (mouth_x, mouth_y),
+                    (mouth_x + thickness, mouth_y - thickness),
+                    thickness
+                )
+
+                # Right side
+                pygame.draw.line(
+                    screen,
+                    (40, 10, 10),
+                    (mouth_x + mouth_w, mouth_y),
+                    (mouth_x + mouth_w - thickness, mouth_y - thickness),
+                    thickness
+                )
 
 
             # Nose
@@ -408,7 +427,7 @@ class MolePopEffect:
                 nose_h = max(2, cell_size // 12)
 
                 nose_x = mole_x + (mole_w - nose_w) // 2
-                nose_y = mole_y + int(head_h * 0.55)
+                nose_y = mole_y + int(head_h * 0.62)
 
                 pygame.draw.ellipse(
                     screen,
