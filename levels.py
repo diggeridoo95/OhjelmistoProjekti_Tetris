@@ -19,7 +19,7 @@ def get_levels() -> list[Level]:
 			drop_interval_ms=275,
 			events=[
 				GarbageRows(2),
-				MoleEvent(trigger_chance=0.25, cooldown_ms=10000),
+				MoleEvent(trigger_chance=0.99, cooldown_ms=10000),
 				InvisibilityEvent(trigger_chance=0.003, duration_ms=1250),
 			],
 		),
