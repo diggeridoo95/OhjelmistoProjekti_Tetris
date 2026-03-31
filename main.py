@@ -368,9 +368,9 @@ while True:
 				else:
 					overlay_text_surface = game_over_surface
 					shadow_text = "Game Over!"
-					shadow_surface = title_font.render(shadow_text, True, Colors.dark_grey)
-					screen.blit(shadow_surface, shadow_surface.get_rect(center=(overlay_bg.centerx + 2, overlay_bg.centery +2)))
-					screen.blit(overlay_text_surface, overlay_text_surface.get_rect(center=overlay_bg.center))
+				shadow_surface = title_font.render(shadow_text, True, Colors.dark_grey)
+				screen.blit(shadow_surface, shadow_surface.get_rect(center=(overlay_bg.centerx + 2, overlay_bg.centery +2)))
+				screen.blit(overlay_text_surface, overlay_text_surface.get_rect(center=overlay_bg.center))
 			elif game.is_level_transitioning():
 				transition_text = game.get_transition_text()
 				overlay_text_surface = transition_font.render(game.get_transition_text(), True, Colors.white)
