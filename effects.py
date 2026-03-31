@@ -253,6 +253,7 @@ class MolePopEffect:
     def __init__(self, duration_ms=900):
         self.duration_ms = max(200, duration_ms)
         self.pops = []
+        self.mole_face = pygame.image.load("pictures/mole_face.png").convert_alpha()
 
     def trigger(self, cells):
         now = pygame.time.get_ticks()
@@ -303,19 +304,34 @@ class MolePopEffect:
             y = offset_y + row * cell_size
 
             # Small hole near bottom of the target cell
-            hole_w = int(cell_size * 0.66)
-            hole_h = max(4, int(cell_size * 0.18))
+            hole_w = int(cell_size * 0.78)
+            hole_h = max(4, int(cell_size * 0.22))
             hole_x = x + (cell_size - hole_w) // 2
             hole_y = y + int(cell_size * 0.70)
 
+            # Outer dirt mound
+            mound_w = int(hole_w * 1.18)
+            mound_h = int(hole_h * 1.9)
+            mound_x = hole_x - (mound_w - hole_w) // 2
+            mound_y = hole_y - int(hole_h * 0.35)
+
+            pygame.draw.ellipse(
+                screen,
+                (95, 72, 42),
+                (mound_x, mound_y, mound_w, mound_h)
+            )
+
+            #Hole dark base
             pygame.draw.ellipse(
                 screen,
                 (25, 18, 10),
                 (hole_x, hole_y, hole_w, hole_h)
             )
+
+            # Inner ligher
             pygame.draw.ellipse(
                 screen,
-                (45, 32, 18),
+                (55, 40, 22),
                 (hole_x + 2, hole_y + 1, max(2, hole_w - 4), max(2, hole_h - 2))
             )
 
@@ -363,77 +379,19 @@ class MolePopEffect:
 
             pygame.draw.ellipse(screen, head_color, head_rect)
 
-
-            # Eyes
+            # Face image
             if mole_h > 10:
-                eye_r = max(2, cell_size // 10)
-                eye_y = mole_y + int(head_h * 0.45)
+                face_w = int(head_w * 1.9)
+                face_h = int((head_h + head_extra) * 2.0)
 
-                left_eye_x = mole_x + int(mole_w * 0.32)
-                right_eye_x = mole_x + int(mole_w * 0.68)
+                face_img = pygame.transform.scale(self.mole_face, (face_w, face_h))
 
-                # Black base
-                pygame.draw.circle(screen, (10, 10, 10), (left_eye_x, eye_y), eye_r)
-                pygame.draw.circle(screen, (10, 10, 10), (right_eye_x, eye_y), eye_r)
+                face_x = mole_x + (head_w - face_w) // 2
+                face_y = mole_y - int((head_h + head_extra) * 0.4)
 
-                # Shine (top-left pixel)
-                shine_r = max(1, eye_r // 3)
-                pygame.draw.circle(screen, (255, 255, 255),
-                                   (left_eye_x - shine_r//2, eye_y - shine_r//2),
-                                   shine_r)
-                pygame.draw.circle(screen, (255, 255, 255),
-                                   (right_eye_x - shine_r//2, eye_y - shine_r//2),
-                                      shine_r)
-                
-            # Mouth
-            if mole_h > 10:
-                mouth_w = max(10, int(mole_w * 0.60))
-                mouth_x = mole_x + (mole_w - mouth_w) // 2
-                mouth_y = mole_y + int(head_h * 1.05)
-
-                thickness = max(1, cell_size // 12)
-
-                # Bottom curve
-                pygame.draw.line(
-                    screen,
-                    (40, 10, 10),
-                    (mouth_x, mouth_y),
-                    (mouth_x + mouth_w, mouth_y),
-                    thickness
-                )
-
-                # Left side
-                pygame.draw.line(
-                    screen,
-                    (40, 10, 10),
-                    (mouth_x, mouth_y),
-                    (mouth_x + thickness, mouth_y - thickness),
-                    thickness
-                )
-
-                # Right side
-                pygame.draw.line(
-                    screen,
-                    (40, 10, 10),
-                    (mouth_x + mouth_w, mouth_y),
-                    (mouth_x + mouth_w - thickness, mouth_y - thickness),
-                    thickness
-                )
+                screen.blit(face_img, (face_x, face_y))
 
 
-            # Nose
-            if mole_h > 8:
-                nose_w = max(3, cell_size // 10)
-                nose_h = max(2, cell_size // 12)
-
-                nose_x = mole_x + (mole_w - nose_w) // 2
-                nose_y = mole_y + int(head_h * 0.62)
-
-                pygame.draw.ellipse(
-                    screen,
-                    (220, 120, 140),
-                    (nose_x, nose_y, nose_w, nose_h)
-                )
 
         self.pops = active_pops
 
