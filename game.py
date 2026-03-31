@@ -42,7 +42,7 @@ class Game:
 		self.hard_drop_lines = SpeedLines()
 		self.lock_flash_effect = CellFlashEffect()
 		self.row_clear_flash_effect = CellFlashEffect(duration_ms=320, flashes=2)
-		self.magic_wand_effect = MagicWandEffect()
+		self.magic_wand_effect = MagicWandEffect(duration_ms=620)
 		self.mole_pop_effect = MolePopEffect()
 		self.bomb_explosion_effect = BombExplosionEffect()
 		self.inversion_flash_effect = InversionFlashEffect()
