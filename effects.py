@@ -1,4 +1,5 @@
 import pygame
+import math
 from colors import Colors
 
 class SpeedLines:
@@ -183,11 +184,67 @@ class CellFlashEffect:
 
 
 class MagicWandEffect:
-    def __init__(self, duration_ms=420):
+    def __init__(self, duration_ms=620):
         self.duration_ms = max(120, duration_ms)
         self.started_at = 0
         self.active_until = 0
         self.cells = []
+
+    def _draw_wand(self, screen, x, y, size, angle, alpha):
+        shaft_len = max(14, int(size * 0.72))
+        shaft_w = max(2, int(size * 0.12))
+
+        dx = math.cos(angle)
+        dy = math.sin(angle)
+        sx = int(round(x - dx * shaft_len * 0.5))
+        sy = int(round(y - dy * shaft_len * 0.5))
+        ex = int(round(x + dx * shaft_len * 0.5))
+        ey = int(round(y + dy * shaft_len * 0.5))
+
+        shaft_color = (
+            int(225 * alpha),
+            int(182 * alpha),
+            int(95 * alpha),
+        )
+        edge_color = (
+            int(130 * alpha),
+            int(95 * alpha),
+            int(55 * alpha),
+        )
+
+        pygame.draw.line(screen, shaft_color, (sx, sy), (ex, ey), shaft_w)
+        pygame.draw.line(screen, edge_color, (sx, sy), (ex, ey), max(1, shaft_w // 2))
+
+        tip_r = max(2, int(size * 0.12))
+        pygame.draw.circle(
+            screen,
+            (int(245 * alpha), int(180 * alpha), int(255 * alpha)),
+            (ex, ey),
+            tip_r,
+        )
+        pygame.draw.circle(
+            screen,
+            (int(255 * alpha), int(240 * alpha), int(255 * alpha)),
+            (ex, ey),
+            max(1, tip_r // 2),
+        )
+
+        sparkle_r = max(5, int(size * 0.18))
+        sparkle_w = max(1, int(size * 0.04))
+        pygame.draw.line(
+            screen,
+            (int(255 * alpha), int(244 * alpha), int(184 * alpha)),
+            (ex - sparkle_r, ey),
+            (ex + sparkle_r, ey),
+            sparkle_w,
+        )
+        pygame.draw.line(
+            screen,
+            (int(255 * alpha), int(244 * alpha), int(184 * alpha)),
+            (ex, ey - sparkle_r),
+            (ex, ey + sparkle_r),
+            sparkle_w,
+        )
 
     def trigger(self, cells):
         norm = []
@@ -222,22 +279,71 @@ class MagicWandEffect:
 
         progress = (now - self.started_at) / self.duration_ms
         progress = max(0.0, min(1.0, progress))
+        fade = 1.0 - progress
 
-        # Two expanding rings plus a center glow for a wand-like burst.
-        ring1 = max(2, int(round(cell_size * (0.18 + 0.42 * progress))))
-        ring2 = max(2, int(round(cell_size * (0.08 + 0.62 * progress))))
-        inner = max(1, int(round(cell_size * (0.1 + 0.2 * (1.0 - progress)))))
+        pulse = 0.5 + 0.5 * math.sin(progress * math.pi * 8.0)
+
+        centers = [
+            (
+                offset_x + col * cell_size + (cell_size // 2),
+                offset_y + row * cell_size + (cell_size // 2),
+            )
+            for row, col in self.cells
+        ]
+        if not centers:
+            return
+
+        avg_cx = sum(p[0] for p in centers) / len(centers)
+        avg_cy = sum(p[1] for p in centers) / len(centers)
+        min_x = min(p[0] for p in centers)
+        max_x = max(p[0] for p in centers)
+        min_y = min(p[1] for p in centers)
+        max_y = max(p[1] for p in centers)
+
+        cast_span = max(max_x - min_x, max_y - min_y)
+        wand_orbit = max(18, int(cast_span * 0.25 + cell_size * (1.2 - 0.25 * progress)))
+        wand_theta = (-math.pi * 0.65) + (progress * math.pi * 2.2)
+        wand_x = int(round(avg_cx + math.cos(wand_theta) * wand_orbit))
+        wand_y = int(round(avg_cy + math.sin(wand_theta) * wand_orbit))
+
+        # Single cast sparkle cluster near the large wand tip.
+        for i in range(7):
+            spark_angle = wand_theta + i * (math.pi * 2 / 7) + (progress * math.pi * 1.2)
+            spark_dist = max(6, int(cell_size * (0.10 + 0.07 * i)))
+            sx = int(round(wand_x + math.cos(spark_angle) * spark_dist))
+            sy = int(round(wand_y + math.sin(spark_angle) * spark_dist))
+            sparkle_r = max(1, int(cell_size * 0.05))
+            sparkle_fade = fade * (0.55 + 0.45 * (1.0 - i / 7.0))
+            pygame.draw.circle(
+                screen,
+                (
+                    int(225 * sparkle_fade),
+                    int(188 * sparkle_fade),
+                    int(255 * sparkle_fade),
+                ),
+                (sx, sy),
+                sparkle_r,
+            )
+
+        # Expanding rings and a pulsing center glow.
+        ring1 = max(2, int(round(cell_size * (0.18 + 0.44 * progress))))
+        ring2 = max(2, int(round(cell_size * (0.08 + 0.68 * progress))))
+        inner = max(1, int(round(cell_size * (0.09 + (0.16 * fade) + (0.06 * pulse)))))
         thickness = max(1, int(round(cell_size * 0.08)))
 
-        fade = 1.0 - progress
         ring_color = (
-            int(220 * fade),
-            int(170 * fade),
+            int(225 * fade),
+            int(172 * fade),
             int(255 * fade),
         )
         glow_color = (
             int(255 * fade),
-            int(230 * fade),
+            int((220 + 35 * pulse) * fade),
+            int(255 * fade),
+        )
+        sparkle_color = (
+            int(255 * fade),
+            int((190 + 50 * pulse) * fade),
             int(255 * fade),
         )
 
@@ -248,6 +354,20 @@ class MagicWandEffect:
             pygame.draw.circle(screen, ring_color, (cx, cy), ring1, thickness)
             pygame.draw.circle(screen, ring_color, (cx, cy), ring2, thickness)
             pygame.draw.circle(screen, glow_color, (cx, cy), inner)
+
+            # Rotating sparkle particles around each affected cell.
+            base_radius = max(3, int(round(cell_size * (0.18 + 0.34 * progress))))
+            spark_radius = max(1, int(round(cell_size * 0.06)))
+            rotation = progress * math.pi * 4.0
+            for i in range(4):
+                angle = rotation + i * (math.pi / 2)
+                sx = int(round(cx + math.cos(angle) * base_radius))
+                sy = int(round(cy + math.sin(angle) * base_radius))
+                pygame.draw.circle(screen, sparkle_color, (sx, sy), spark_radius)
+
+        wand_size = max(28, int(cell_size * (1.55 + min(0.45, cast_span / max(1, cell_size * 10)))))
+        wand_angle = wand_theta + (math.pi * 0.35 * math.sin(progress * math.pi * 6.0))
+        self._draw_wand(screen, wand_x, wand_y, wand_size, wand_angle, fade)
 
 class MolePopEffect:
     def __init__(self, duration_ms=600):
