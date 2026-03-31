@@ -4,6 +4,8 @@ from game import Game
 from blocks import *
 from startgame import StartScreen
 from pausemenu import PauseMenu
+import music
+import sfx
 pygame.init()
 
 INITIAL_WIDTH = 1000
@@ -17,10 +19,25 @@ BASE_SIDE_MIN = 170
 screen = pygame.display.set_mode((INITIAL_WIDTH, INITIAL_HEIGHT), pygame.RESIZABLE)
 pygame.display.set_caption("Tetris Overwhelmed")
 
+is_fullscreen = False
+windowed_size = (INITIAL_WIDTH, INITIAL_HEIGHT)
+music_volume = 0.70
+sfx_volume = 0.70
+game_music_file = "game_music.mp3"
+
+music.initialize()
+music.set_volume(music_volume)
+
+sfx.initialize()
+sfx.set_volume(sfx_volume)
+
 clock = pygame.time.Clock()
 
 # Initialize start screen
 start_screen = StartScreen(INITIAL_WIDTH, INITIAL_HEIGHT)
+start_screen.music_volume = music_volume
+start_screen.sfx_volume = sfx_volume
+start_screen.is_fullscreen = is_fullscreen
 game = None
 game_started = False
 game_paused = False
@@ -92,15 +109,38 @@ while True:
 		if event.type == pygame.QUIT:
 			pygame.quit()
 			sys.exit()
+
+		if event.type == pygame.VIDEORESIZE and is_fullscreen == False:
+			windowed_size = (event.w, event.h)
+			screen = pygame.display.set_mode(windowed_size, pygame.RESIZABLE)
 		
 		if not game_started:
 			# Handle start screen events
-			start_screen.handle_event(event)
+			start_action = start_screen.handle_event(event)
+
+			if "fullscreen" in start_action and start_action["fullscreen"] != is_fullscreen:
+				is_fullscreen = start_action["fullscreen"]
+				if is_fullscreen:
+					windowed_size = screen.get_size()
+					screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+				else:
+					screen = pygame.display.set_mode(windowed_size, pygame.RESIZABLE)
+
+			if "music_volume" in start_action:
+				music_volume = start_action["music_volume"]
+				music.set_volume(music_volume)
+
+			if "sfx_volume" in start_action:
+				sfx_volume = start_action["sfx_volume"]
+				sfx.set_volume(sfx_volume)
+
 			if start_screen.game_started:
 				game_started = True
 				game = Game()
 				game_paused = False
 				pause_menu = PauseMenu()
+				if music.is_playing() == False:
+					music.play_background(game_music_file)
 				pygame.time.set_timer(GAME_UPDATE, game.get_drop_interval())
 
 		else:
@@ -115,6 +155,7 @@ while True:
 					game = None
 					pause_menu = None
 					game_paused = False
+					music.stop()
 				continue
 
 			if event.type == pygame.KEYDOWN:
@@ -126,6 +167,7 @@ while True:
 						game = None
 						pause_menu = None
 						game_paused = False
+						music.stop()
 					continue
 				if event.key == pygame.K_p and game.game_over == False:
 					game_paused = True

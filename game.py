@@ -7,6 +7,7 @@ from bomb_icon import draw_bomb_cell
 from effects import SpeedLines, CellFlashEffect, MagicWandEffect, MolePopEffect, BombExplosionEffect, InversionFlashEffect
 import random
 import pygame
+import sfx
 
 
 class Game:
@@ -173,6 +174,7 @@ class Game:
 			self.lock_flash_effect.remap_vertical_flip(self.grid.num_rows)
 			self.bomb_explosion_effect.remap_vertical_flip(self.grid.num_rows)
 			self.inversion_flash_effect.trigger()
+			sfx.play_inversion()
 		return self.inversion.spawn_block(block, self.grid)
 	
 	def move_left(self):
@@ -211,6 +213,7 @@ class Game:
 				step,
 				self.current_block.colors[self.current_block.id],
 			)
+			sfx.play_hard_drop()
 		self.lock_block()
 
 		
@@ -226,6 +229,7 @@ class Game:
 			if tiles:
 				bomb_pos = tiles[0]
 				if self.grid.is_inside(bomb_pos.row, bomb_pos.column):
+					sfx.play_bomb()
 					affected_cells = self.grid.bomb_explosion(
 					    bomb_pos.row,
 					    bomb_pos.column,
@@ -269,6 +273,7 @@ class Game:
 		rows_cleared = self.grid.clear_full_rows(gravity_step=self.get_gravity_step())
 
 		if rows_cleared > 0:
+			sfx.play_line_clear()
 
 			#self.lock_flash_effect.clear() #jos ei haluta välähdystä silloin, kun rivi poistuu
 			self.update_score(rows_cleared, 0)
@@ -290,6 +295,7 @@ class Game:
 		
 		if self.block_fits() == False:
 			self.game_over = True
+			sfx.play_game_over()
 	
 	def get_next_block(self):
 		"""Get a regular random next block. Bomb is injected explicitly when ability is used."""
@@ -307,7 +313,10 @@ class Game:
 		"""Use magic wand ability immediately."""
 		if not self.has_magic_wand:
 			return False
-		return self.magic_wand_ability.activate(self)
+		used = self.magic_wand_ability.activate(self)
+		if used:
+			sfx.play_magic_wand()
+		return used
 	
 	def reset(self):
 		self.grid.reset()
@@ -356,6 +365,8 @@ class Game:
 		self.current_block.rotate()
 		if self.block_inside() == False or self.block_fits() == False:
 			self.current_block.undo_rotation()
+		else:
+			sfx.play_block_turn()
 
 	def block_inside(self):
 		"""Check if block is within grid bounds. In inverted mode, top boundary becomes bottom."""

@@ -1,5 +1,6 @@
 import random
 import pygame
+import sfx
 
 class LevelEvent:
     """Hook for optional level-specific mechanics."""
@@ -118,6 +119,7 @@ class MoleEvent(LevelEvent):
             game.grid.grid[row][col] = 0
             
         game.mole_pop_effect.trigger(chosen_cells)   #trigger pop effect on dug cells
+        sfx.play_mole_event()
         
         #optional status text support
         game.last_event_text = f"Mole dug {dig_count} hole{'s' if dig_count > 1 else ''}!"
