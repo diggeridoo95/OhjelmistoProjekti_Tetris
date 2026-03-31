@@ -1,6 +1,7 @@
 from colors import Colors
 from position import Position
 import pygame
+from bomb_icon import draw_bomb_cell
 
 class Block:
 	def __init__(self, id):
@@ -38,5 +39,8 @@ class Block:
 		for tile in tiles:
 			tile_rect = pygame.Rect(offset_x + tile.column * self.cell_size, 
 				offset_y + tile.row * self.cell_size, self.cell_size -1, self.cell_size -1)
-			pygame.draw.rect(screen, self.colors[self.id], tile_rect)
+			if self.id == 8:
+				draw_bomb_cell(screen, tile_rect)
+			else:
+				pygame.draw.rect(screen, self.colors[self.id], tile_rect)
 		

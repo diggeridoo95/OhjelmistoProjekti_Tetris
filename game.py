@@ -3,7 +3,8 @@ from blocks import *
 from abilities import BombAbility, MagicWandAbility
 from levels import get_levels
 from inversion import InversionController
-from effects import SpeedLines, CellFlashEffect, MagicWandEffect, MolePopEffect
+from bomb_icon import draw_bomb_cell
+from effects import SpeedLines, CellFlashEffect, MagicWandEffect, MolePopEffect, BombExplosionEffect, InversionFlashEffect
 import random
 import pygame
 
@@ -18,7 +19,7 @@ class Game:
 		
 		# pelikentän peilauksen määritykset 
 		#JOS HALUAT TESTATA ILMAN PEILAUSTA, ASETU TÄMÄN ARVOKSI 999
-		self.inversion = InversionController(interval_seconds=10, lock_target=3) 
+		self.inversion = InversionController(interval_seconds=30, lock_target=3) 
 		
 		self.current_block = self.spawn_current_block(self.get_random_block())
 		self.next_block = self.get_random_block()
@@ -43,6 +44,8 @@ class Game:
 		self.row_clear_flash_effect = CellFlashEffect(duration_ms=320, flashes=2)
 		self.magic_wand_effect = MagicWandEffect()
 		self.mole_pop_effect = MolePopEffect()
+		self.bomb_explosion_effect = BombExplosionEffect()
+		self.inversion_flash_effect = InversionFlashEffect()
 		
 		
 		# Ability system
@@ -53,7 +56,7 @@ class Game:
 		self.has_magic_wand = False  # Flag indicating player owns magic wand ability
 		self.last_block_position = None  # Track position of last locked block for bomb explosion
 
-		self.apply_level(1)  # Start at level 2 for testing purposes
+		#self.apply_level(4)  # Start at level 2 for testing purposes
 							#Can be adjusted for further testing
 
 	def get_level_score(self):
@@ -69,7 +72,6 @@ class Game:
 	def apply_level(self, level_index):
 		# Preserve unused abilities when moving to next level.
 		preserved_has_bomb = self.has_bomb
-		preserved_bomb_active = self.bomb_active
 		preserved_has_magic_wand = self.has_magic_wand
 
 		self.current_level_index = level_index
@@ -88,7 +90,7 @@ class Game:
 		self.next_block = self.get_next_block()
 
 		self.has_bomb = preserved_has_bomb
-		self.bomb_active = preserved_bomb_active
+		self.bomb_active = False  # Reset temporary bomb_active state (blocks are reset anyway)
 		self.has_magic_wand = preserved_has_magic_wand
 
 		for event in self.current_level.events:
@@ -162,15 +164,15 @@ class Game:
 		return self.inversion.get_gravity_step()
 
 	def update_inversion_event_timer(self):
-		"""Updates inversion event timer and activates event when needed."""
-		was_inverted = self.inversion.inverted_gravity
-		self.inversion.update_timer(self.grid)
-		
-		if was_inverted != self.inversion.inverted_gravity:
-			self.lock_flash_effect.remap_vertical_flip(self.grid.num_rows)
+		"""Updates inversion event timer; inversion is applied at next spawn."""
+		self.inversion.update_timer()
 
 	def spawn_current_block(self, block):
 		"""Spawns a block using inversion-aware spawn rules."""
+		if self.inversion.apply_pending_activation(self.grid):
+			self.lock_flash_effect.remap_vertical_flip(self.grid.num_rows)
+			self.bomb_explosion_effect.remap_vertical_flip(self.grid.num_rows)
+			self.inversion_flash_effect.trigger()
 		return self.inversion.spawn_block(block, self.grid)
 	
 	def move_left(self):
@@ -224,7 +226,12 @@ class Game:
 			if tiles:
 				bomb_pos = tiles[0]
 				if self.grid.is_inside(bomb_pos.row, bomb_pos.column):
-					self.grid.bomb_explosion(bomb_pos.row, bomb_pos.column)
+					affected_cells = self.grid.bomb_explosion(
+					    bomb_pos.row,
+					    bomb_pos.column,
+					    gravity_step=self.get_gravity_step(),
+					)
+					self.bomb_explosion_effect.trigger(affected_cells)
 			self.has_bomb = False
 			self.bomb_active = False
 		else:
@@ -259,24 +266,24 @@ class Game:
 			)
 		
 
-		rows_cleared = self.grid.clear_full_rows()
+		rows_cleared = self.grid.clear_full_rows(gravity_step=self.get_gravity_step())
 
 		if rows_cleared > 0:
 
 			#self.lock_flash_effect.clear() #jos ei haluta välähdystä silloin, kun rivi poistuu
 			self.update_score(rows_cleared, 0)
 			# Grant bomb ability on Tetris (4 row clear)
-			if rows_cleared == 4:
+			if rows_cleared == 1 or rows_cleared == 2 or rows_cleared == 3 or rows_cleared == 4:
 				self.has_bomb = True
 			# Grant magic wand on 3-line clear
 			if rows_cleared == 3:
 				self.has_magic_wand = True
 
 		# Let inversion controller track lock count and auto-disable event
-		was_inverted = self.inversion.inverted_gravity
-		self.inversion.on_block_locked(self.grid)
-		if was_inverted != self.inversion.inverted_gravity:
+		if self.inversion.on_block_locked(self.grid):
 			self.lock_flash_effect.remap_vertical_flip(self.grid.num_rows)
+			self.bomb_explosion_effect.remap_vertical_flip(self.grid.num_rows)
+			self.inversion_flash_effect.trigger()  # Flash when inversion deactivates
 
 		self.current_block = self.spawn_current_block(self.next_block)
 		self.next_block = self.get_next_block()
@@ -285,16 +292,14 @@ class Game:
 			self.game_over = True
 	
 	def get_next_block(self):
-		"""Get the next block - either a BombBlock if bomb is active, or a regular block"""
-		if self.bomb_active:
-			return BombBlock()
-		else:
-			return self.get_random_block()
+		"""Get a regular random next block. Bomb is injected explicitly when ability is used."""
+		return self.get_random_block()
 	
 	def use_bomb_ability(self):
-		"""Activate the bomb ability for the next block"""
+		"""Activate bomb and replace the currently queued next block with one bomb block."""
 		if self.has_bomb and not self.bomb_active:
 			self.bomb_ability.activate(self)
+			self.next_block = BombBlock()
 			return True
 		return False
 
@@ -306,6 +311,8 @@ class Game:
 	
 	def reset(self):
 		self.grid.reset()
+		# Reset inversion state before spawning the first block.
+		self.inversion.reset_state()
 		self.blocks = [IBlock(), JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
 		self.current_block = self.spawn_current_block(self.get_random_block())
 		self.next_block = self.get_random_block()
@@ -329,8 +336,7 @@ class Game:
 		self.lock_flash_effect.clear()
 		self.row_clear_flash_effect.clear()
 		self.magic_wand_effect.clear()
-		# Reset inversion event state on game reset
-		self.inversion.reset_state()
+		self.bomb_explosion_effect.clear()
 
 	def trigger_invisibility(self, duration_ms=1000):
 		self.invisible_until_ms = pygame.time.get_ticks() + max(0, duration_ms)
@@ -364,19 +370,26 @@ class Game:
 				return False
 		return True
 	
-	def draw(self, screen):
+	def draw(self, screen, hide_blocks=False):
 		invisible = self.is_invisible_active()
-		self.grid.draw(screen, self.grid_offset_x, self.grid_offset_y, hide_blocks=invisible)
-		self.lock_flash_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
+		self.grid.draw(screen, self.grid_offset_x, self.grid_offset_y, hide_blocks=invisible, hide_filled_blocks=hide_blocks)
+
+		if not hide_blocks:
+			self.bomb_explosion_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y, hide_blocks=invisible)
+			self.lock_flash_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
 		self.row_clear_flash_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
 		self.magic_wand_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
 		self.mole_pop_effect.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
 		if not invisible:
 			self.hard_drop_lines.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
+			self.inversion_flash_effect.draw(screen, screen.get_width(), screen.get_height())
 		if self.game_over == False and not invisible:
 			self.draw_current_block_clipped(screen, self.grid_offset_x, self.grid_offset_y)
 
-		self.draw_next_block_preview(screen)
+			self.draw_next_block_preview(screen)
+
+			if self.is_invisible_active():
+				self.draw_invisibility_overlay(screen)
 
 	def draw_next_block_preview(self, screen):
 		tiles = self.next_block.get_cell_positions()
@@ -415,7 +428,10 @@ class Game:
 					self.current_block.cell_size - 1,
 					self.current_block.cell_size - 1,
 				)
-				pygame.draw.rect(screen, self.current_block.colors[self.current_block.id], tile_rect)
+				if self.current_block.id == 8:
+					draw_bomb_cell(screen, tile_rect)
+				else:
+					pygame.draw.rect(screen, self.current_block.colors[self.current_block.id], tile_rect)
 
 	def countdown(self):
 		"""Update game timer and check for random inverted gravity event"""
@@ -454,4 +470,5 @@ class Game:
 			return ""
 		next_level_number = self.levels[self.pending_level_index].number
 		return f"Level {next_level_number}"
+
 

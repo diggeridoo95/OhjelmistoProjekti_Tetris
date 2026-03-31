@@ -73,9 +73,11 @@ class MagicWandAbility(Ability):
 		self.max_fill = max(self.min_fill, max_fill)
 
 	def activate(self, game):
-		"""Fill holes from bottom upwards and consume the ability."""
+		"""Fill holes along current gravity direction and consume the ability."""
 		if not game.has_magic_wand:
 			return False
+
+		gravity_step = game.get_gravity_step()
 
 		occupied_by_current = set()
 		for tile in game.current_block.get_cell_positions():
@@ -88,11 +90,17 @@ class MagicWandAbility(Ability):
 			for col in range(game.grid.num_cols):
 				if game.grid.grid[row][col] == 0 and (row, col) not in occupied_by_current:
 					empty_cells.append((row, col))
-					# A hole has at least one filled cell above in the same column.
-					for above_row in range(0, row):
-						if game.grid.grid[above_row][col] != 0:
-							hole_cells.append((row, col))
-							break
+					# Hole direction follows gravity: normal uses cells above, inverted uses cells below.
+					if gravity_step >= 0:
+						for above_row in range(0, row):
+							if game.grid.grid[above_row][col] != 0:
+								hole_cells.append((row, col))
+								break
+					else:
+						for below_row in range(row + 1, game.grid.num_rows):
+							if game.grid.grid[below_row][col] != 0:
+								hole_cells.append((row, col))
+								break
 
 		if not empty_cells:
 			return False
@@ -102,7 +110,7 @@ class MagicWandAbility(Ability):
 		# Prefer real holes first; if none exist, use all empty cells.
 		target_cells = hole_cells if hole_cells else empty_cells
 
-		# Fill from the bottom first. Randomize within the same row for variation.
+		# Fill from the gravity destination side first.
 		cells_by_row = {}
 		for row, col in target_cells:
 			if row not in cells_by_row:
@@ -110,7 +118,8 @@ class MagicWandAbility(Ability):
 			cells_by_row[row].append((row, col))
 
 		ordered_cells = []
-		for row in sorted(cells_by_row.keys(), reverse=True):
+		row_order = sorted(cells_by_row.keys(), reverse=(gravity_step >= 0))
+		for row in row_order:
 			row_cells = cells_by_row[row]
 			random.shuffle(row_cells)
 			ordered_cells.extend(row_cells)
@@ -120,9 +129,20 @@ class MagicWandAbility(Ability):
 		for row, col in chosen:
 			game.grid.grid[row][col] = random.randint(1, 7)
 
+		rows_cleared = game.grid.clear_full_rows(gravity_step=gravity_step)
+		if rows_cleared > 0:
+			# Keep scoring behavior identical to normal line clears.
+			game.update_score(rows_cleared, 0)
+
 		game.lock_flash_effect.trigger(chosen, color=(200, 160, 255), flashes=2, duration_ms=220)
 		game.magic_wand_effect.trigger(chosen)
-		game.last_event_text = f"Magic Wand filled {fill_count} cell{'s' if fill_count > 1 else ''}!"
+		if rows_cleared > 0:
+			game.last_event_text = (
+				f"Magic Wand filled {fill_count} cell{'s' if fill_count > 1 else ''} and cleared "
+				f"{rows_cleared} row{'s' if rows_cleared > 1 else ''}!"
+			)
+		else:
+			game.last_event_text = f"Magic Wand filled {fill_count} cell{'s' if fill_count > 1 else ''}!"
 		game.last_event_timer = 90
 		self.deactivate(game)
 		return True

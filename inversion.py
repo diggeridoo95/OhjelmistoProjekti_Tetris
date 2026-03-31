@@ -7,11 +7,13 @@ class InversionController:
         self.inverted_gravity = False
         self.seconds_until_trigger = interval_seconds
         self.blocks_remaining = 0
+        self.pending_activation = False
 
     def reset_state(self):
         self.inverted_gravity = False
         self.seconds_until_trigger = self.interval_seconds
         self.blocks_remaining = 0
+        self.pending_activation = False
 
     def get_gravity_step(self):
         return -1 if self.inverted_gravity else 1
@@ -39,19 +41,30 @@ class InversionController:
         self.seconds_until_trigger = self.interval_seconds
         self.flip_grid_vertically(grid)
 
-    def update_timer(self, grid):
-        if self.inverted_gravity:
+    def update_timer(self):
+        if self.inverted_gravity or self.pending_activation:
             return
         self.seconds_until_trigger -= 1
         if self.seconds_until_trigger <= 0:
-            self.activate(grid)
+            # Delay actual inversion until next block spawn.
+            self.pending_activation = True
 
     def on_block_locked(self, grid):
         if not self.inverted_gravity:
-            return
+            return False
         self.blocks_remaining -= 1
         if self.blocks_remaining <= 0:
             self.deactivate(grid)
+            return True
+        return False
+
+    
+    def apply_pending_activation(self, grid):
+        if not self.pending_activation:
+            return False
+        self.pending_activation = False
+        self.activate(grid)
+        return True
 
     def spawn_block(self, block, grid):
         if self.inverted_gravity:
@@ -62,3 +75,4 @@ class InversionController:
         else:
             block.move(-1, 0)
         return block
+

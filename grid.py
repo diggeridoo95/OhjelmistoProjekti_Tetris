@@ -1,5 +1,6 @@
 import pygame
 from colors import Colors
+from bomb_icon import draw_bomb_cell
 
 class Grid:
     def __init__(self):
@@ -28,13 +29,6 @@ class Grid:
 
         return [dark_grey, green, red, orange, yellow, purple, cyan, blue]
     
-    def get_full_rows(self):
-        full_rows = []
-        for row in range(self.num_rows):
-            if all (self.grid[row][column] != 0 for column in range(self.num_cols)):
-                full_rows.append(row)
-        return full_rows
-
     def is_inside(self, row, column):
         if row >= 0 and row < self.num_rows and column >= 0 and column < self.num_cols:
             return True
@@ -55,6 +49,13 @@ class Grid:
             if self.grid[row][column] == 0:
                 return False
         return True
+
+    def get_full_rows(self):
+        full_rows = []
+        for row in range(self.num_rows):
+            if self.is_row_full(row):
+                full_rows.append(row)
+        return full_rows
     
     def clear_row(self, row):
         for column in range(self.num_cols):
@@ -62,17 +63,34 @@ class Grid:
 
     def move_row_down(self, row, num_rows):
         for column in range(self.num_cols):
-            self.grid[row+num_rows][column] = self.grid[row][column]
+            self.grid[row + num_rows][column] = self.grid[row][column]
             self.grid[row][column] = 0
 
-    def clear_full_rows(self):
+    def move_row_up(self, row, num_rows):
+        for column in range(self.num_cols):
+            self.grid[row - num_rows][column] = self.grid[row][column]
+            self.grid[row][column] = 0
+
+    def clear_full_rows(self, gravity_step=1):
         completed = 0
-        for row in range(self.num_rows-1, 0, -1):
-            if self.is_row_full(row):
-                self.clear_row(row)
-                completed += 1
-            elif completed > 0:
-                self.move_row_down(row, completed)
+
+        if gravity_step >= 0:
+            # Normal gravity: cleared lines pull blocks downward.
+            for row in range(self.num_rows - 1, -1, -1):
+                if self.is_row_full(row):
+                    self.clear_row(row)
+                    completed += 1
+                elif completed > 0:
+                    self.move_row_down(row, completed)
+        else:
+            # Inverted gravity: cleared lines pull blocks upward.
+            for row in range(0, self.num_rows):
+                if self.is_row_full(row):
+                    self.clear_row(row)
+                    completed += 1
+                elif completed > 0:
+                    self.move_row_up(row, completed)
+
         return completed
     
     def reset(self):
@@ -80,7 +98,7 @@ class Grid:
             for column in range(self.num_cols):
                 self.grid[row][column] = 0
     
-    def bomb_explosion(self, center_row, center_col):
+    def bomb_explosion(self, center_row, center_col, gravity_step=1):
         """
         Trigger bomb explosion at the given position.
         Removes blocks in a bomb-like pattern (circular/cross pattern).
@@ -98,22 +116,30 @@ class Grid:
         ]
         
         # Remove blocks in explosion area
+        affected_cells = []
         for row_offset, col_offset in explosion_pattern:
             target_row = center_row + row_offset
             target_col = center_col + col_offset
             
             if self.is_inside(target_row, target_col):
+                affected_cells.append((target_row, target_col))
                 self.grid[target_row][target_col] = 0
         
         # Apply gravity and clear completed rows
-        self.clear_full_rows()
+        self.clear_full_rows(gravity_step=gravity_step)
+        return affected_cells
         
-    def draw(self, screen, offset_x=11, offset_y=11, hide_blocks=False):
+    def draw(self, screen, offset_x=11, offset_y=11, hide_blocks=False, hide_filled_blocks=False):
         for row in range(self.num_rows):
             for column in range(self.num_cols):
                 cell_value = self.grid[row][column]
                 if hide_blocks and cell_value != 0:
                     cell_value = 0
+                if hide_filled_blocks:
+                    cell_value = 0
                 cell_rect = pygame.Rect(column*self.cell_size + offset_x, row*self.cell_size + offset_y, 
                                         self.cell_size-1, self.cell_size-1)
-                pygame.draw.rect(screen, self.colors[cell_value], cell_rect)
+                if cell_value == 8:
+                    draw_bomb_cell(screen, cell_rect)
+                else:
+                    pygame.draw.rect(screen, self.colors[cell_value], cell_rect)
