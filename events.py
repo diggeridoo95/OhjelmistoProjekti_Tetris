@@ -159,6 +159,9 @@ class MoleEvent(LevelEvent):
 class InvisibilityEvent(LevelEvent):
     """Randomly hides all blocks for a short duration."""
 
+    PRE_FLASH_COUNT = 3
+    PRE_FLASH_DURATION_MS = 1300
+
     def __init__(self, trigger_chance, duration_ms):
         self.trigger_chance = trigger_chance
         self.duration_ms = max(200, duration_ms)
@@ -177,12 +180,8 @@ class InvisibilityEvent(LevelEvent):
         if random.random() > self.trigger_chance:
             return
 
-        # Collect all locked block cells for flash effect
-        flash_cells = []
-        for row in range(game.grid.num_rows):
-            for col in range(game.grid.num_cols):
-                if game.grid.grid[row][col] != 0:
-                    flash_cells.append((row, col))
+        # Collect locked cells and current falling block cells for pre-flash effect.
+        flash_cells = game.get_invisibility_flash_cells()
         
         # Trigger invisibility with flash effect
         game.trigger_invisibility(self.duration_ms)
@@ -190,7 +189,14 @@ class InvisibilityEvent(LevelEvent):
             if durations_ms is None:
                 durations_ms = self.current_level.global_event_cooldown_ms
             self.global_event_cooldown_until_ms = pygame.time.get_ticks() + durations_ms
+        # Flash locked cells 3 times before invisibility starts.
+        game.trigger_invisibility(self.duration_ms, delay_ms=self.PRE_FLASH_DURATION_MS)
         if flash_cells:
-            game.lock_flash_effect.trigger(flash_cells, color=(200, 200, 255), flashes=2, duration_ms=200)
+            game.invisibility_preflash_effect.trigger(
+                flash_cells,
+                color=(200, 200, 255),
+                flashes=self.PRE_FLASH_COUNT,
+                duration_ms=self.PRE_FLASH_DURATION_MS,
+            )
         game.last_event_text = "Invisibility!"
         game.last_event_timer = 90
