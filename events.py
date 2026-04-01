@@ -64,6 +64,9 @@ class MoleEvent(LevelEvent):
         self.next_check_ms = 0
         self.cooldown_until_ms = 0
 
+        self.pending_removals = []   #List of cells to remove after pop effect completes
+        self.remove_delay_ms = 120   #Delay for actual removal to wait for animation to play
+
     def on_level_start(self, game):
         now = pygame.time.get_ticks()
         self.next_check_ms = now + self.check_interval_ms
@@ -74,7 +77,24 @@ class MoleEvent(LevelEvent):
         if game.game_over or game.is_level_transitioning():   #Cant trigger if game is over or transitioning between levels
             return
         
+        if game.is_global_event_cooldown_active():   # Global event cooldown check
+            return
+        
         now = pygame.time.get_ticks()
+
+        remaining = []
+        for removal in self.pending_removals:
+            if now >= removal['remove_at']:
+                row = removal['row']
+                col = removal['col']
+
+                if game.grid.is_inside(row, col):
+                    game.grid.grid[row][col] = 0
+
+            else:
+                remaining.append(removal)
+
+        self.pending_removals = remaining
 
         if now < self.cooldown_until_ms:     #Check if we're still in cooldown period
             return
@@ -114,10 +134,20 @@ class MoleEvent(LevelEvent):
 
         chosen_cells = random.sample(filled_cells, dig_count)    #select cells to dig from valid cells
 
-        for row, col in chosen_cells:
-            game.grid.grid[row][col] = 0
-            
         game.mole_pop_effect.trigger(chosen_cells)   #trigger pop effect on dug cells
+
+        for row, col in chosen_cells:
+            self.pending_removals.append({
+                'row': row,
+                'col': col,
+                'remove_at': now + self.remove_delay_ms
+            })
+
+        def start_global_event_cooldown(self, durations_ms=None):
+            if durations_ms is None:
+                durations_ms = self.current_level.global_event_cooldown_ms
+            self.global_event_cooldown_until_ms = pygame.time.get_ticks() + durations_ms
+        
         
         #optional status text support
         game.last_event_text = f"Mole dug {dig_count} hole{'s' if dig_count > 1 else ''}!"
@@ -139,6 +169,9 @@ class InvisibilityEvent(LevelEvent):
     def on_tick(self, game):
         if game.game_over or game.is_level_transitioning():
             return
+        
+        if game.is_global_event_cooldown_active():  # Global event cooldown check
+            return
 
         # Do not re-trigger while current invisibility is still active.
         if game.is_invisible_active():
@@ -150,6 +183,12 @@ class InvisibilityEvent(LevelEvent):
         # Collect locked cells and current falling block cells for pre-flash effect.
         flash_cells = game.get_invisibility_flash_cells()
         
+        # Trigger invisibility with flash effect
+        game.trigger_invisibility(self.duration_ms)
+        def start_global_event_cooldown(self, durations_ms=None):
+            if durations_ms is None:
+                durations_ms = self.current_level.global_event_cooldown_ms
+            self.global_event_cooldown_until_ms = pygame.time.get_ticks() + durations_ms
         # Flash locked cells 3 times before invisibility starts.
         game.trigger_invisibility(self.duration_ms, delay_ms=self.PRE_FLASH_DURATION_MS)
         if flash_cells:

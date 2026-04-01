@@ -49,6 +49,7 @@ class Game:
 		self.mole_pop_effect = MolePopEffect()
 		self.bomb_explosion_effect = BombExplosionEffect()
 		self.inversion_flash_effect = InversionFlashEffect()
+		self.global_event_cooldown_until_ms = 0  # General cooldown to prevent multiple events triggering simultaneously
 		
 		
 		# Ability system
@@ -59,7 +60,7 @@ class Game:
 		self.has_magic_wand = False  # Flag indicating player owns magic wand ability
 		self.last_block_position = None  # Track position of last locked block for bomb explosion
 
-		#self.apply_level(4)  # Start at level 2 for testing purposes
+		#self.apply_level(1)  # Start at level 2 for testing purposes
 							#Can be adjusted for further testing
 
 	def get_level_score(self):
@@ -83,6 +84,7 @@ class Game:
 		self.time_left = self.current_level.time_limit_seconds
 		self.drop_interval_ms = self.current_level.drop_interval_ms
 		self.speed_changed = True
+		self.global_event_cooldown_until_ms = 0
 		
 		# Reset inversion event state when level changes
 		self.inversion.reset_state()
@@ -98,6 +100,14 @@ class Game:
 
 		for event in self.current_level.events:
 			event.on_level_start(self)
+
+	def is_global_event_cooldown_active(self):
+		return pygame.time.get_ticks() < self.global_event_cooldown_until_ms
+	
+	def start_global_event_cooldown(self, duration_ms=None):
+		if duration_ms is None:
+			duration_ms = self.global_event_cooldown_until_ms
+		self.global_event_cooldown_until_ms = pygame.time.get_ticks() + duration_ms
 
 	def update_level_events(self):		#Update active level events
 

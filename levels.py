@@ -17,6 +17,7 @@ def get_levels() -> list[Level]:
 			target_score=1200,
 			time_limit_seconds=110,
 			drop_interval_ms=275,
+            global_event_cooldown_ms=3000,
 			events=[
 				GarbageRows(2),
 				MoleEvent(trigger_chance=0.25, cooldown_ms=10000),
