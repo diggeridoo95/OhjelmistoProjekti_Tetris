@@ -2,7 +2,7 @@ import pygame
 import os
 
 # Music volume control
-current_volume = 0.70
+current_volume = 0.10
 
 # Path to music files
 MUSIC_DIR = os.path.join(os.path.dirname(__file__), "sounds", "music")

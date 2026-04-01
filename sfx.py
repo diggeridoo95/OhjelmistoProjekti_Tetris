@@ -2,7 +2,7 @@ import pygame
 import os
 
 # SFX volume control
-current_volume = 0.70
+current_volume = 0.10
 
 # Path to sound effect files
 SFX_DIR = os.path.join(os.path.dirname(__file__), "sounds", "sfx")

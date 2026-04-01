@@ -21,8 +21,8 @@ class StartScreen:
 		self.options_selected_index = 0
 		self.controls_open = False
 		self.is_fullscreen = False
-		self.music_volume = 0.70
-		self.sfx_volume = 0.70
+		self.music_volume = 0.10
+		self.sfx_volume = 0.10
 		self.volume_step = 0.10
 
 	def set_background_image(self, image):
@@ -128,24 +128,31 @@ class StartScreen:
 		screen.blit(header_surface, header_rect)
 
 		line_font = pygame.font.Font(None, max(24, self.screen_width // 40))
-		controls_lines = [
-			"Left / Right  - Move",
-			"Up            - Rotate",
-			"Down          - Soft Drop",
-			"Space         - Hard Drop",
-			"A             - Bomb Ability",
-			"S             - Magic Wand",
-			"P             - Pause",
+		controls_rows = [
+			("Left / Right", "Move"),
+			("Up", "Rotate"),
+			("Down", "Soft Drop"),
+			("Space", "Hard Drop"),
+			("A", "Bomb Ability"),
+			("S", "Magic Wand"),
+			("P", "Pause"),
 		]
 
 		line_start_y = header_rect.bottom + max(24, panel_height // 14)
 		line_spacing = max(36, panel_height // 11)
+		left_x = panel_rect.x + 40
+		right_x = panel_rect.right - 40
 
-		for index, line in enumerate(controls_lines):
+		for index, (control_text, action_text) in enumerate(controls_rows):
 			y_pos = line_start_y + (index * line_spacing)
-			text_surface = line_font.render(line, True, (18, 28, 78))
-			text_rect = text_surface.get_rect(midleft=(panel_rect.x + 40, y_pos))
-			screen.blit(text_surface, text_rect)
+
+			control_surface = line_font.render(control_text, True, (18, 28, 78))
+			control_rect = control_surface.get_rect(midleft=(left_x, y_pos))
+			screen.blit(control_surface, control_rect)
+
+			action_surface = line_font.render(action_text, True, (18, 28, 78))
+			action_rect = action_surface.get_rect(midright=(right_x, y_pos))
+			screen.blit(action_surface, action_rect)
 
 		help_font = pygame.font.Font(None, max(22, self.screen_width // 45))
 		help_surface = help_font.render("Enter / Esc: Back", True, Colors.dark_blue)

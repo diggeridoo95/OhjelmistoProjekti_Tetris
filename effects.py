@@ -1,4 +1,5 @@
 import pygame
+import math
 from colors import Colors
 
 class SpeedLines:
@@ -130,6 +131,24 @@ class CellFlashEffect:
         self.started_at = 0
         self.flash_cells = []
 
+    def is_active(self):
+        return self.active_until > 0 and pygame.time.get_ticks() < self.active_until
+
+    def is_visible_now(self):
+        if not self.flash_cells:
+            return False
+
+        now = pygame.time.get_ticks()
+        if now >= self.active_until:
+            self.clear()
+            return False
+
+        elapsed = now - self.started_at
+        phase_count = self.flashes * 2
+        phase_duration = max(1, self.duration_ms / phase_count)
+        phase_index = int(elapsed / phase_duration)
+        return phase_index % 2 == 0
+
     def remap_vertical_flip(self, row_count):
         if not self.flash_cells:
             return
@@ -143,29 +162,13 @@ class CellFlashEffect:
 
         self.flash_cells = new_cells
 
-    def draw(self, screen, cell_size, offset_x, offset_y):
-        if not self.flash_cells:
-            return
-
-        now = pygame.time.get_ticks()
-
-        if now >= self.active_until:
-            self.clear()
-            return
-
-        elapsed = now - self.started_at
-
-        phase_count = self.flashes * 2
-        phase_duration = max(1, self.duration_ms / phase_count)
-
-        phase_index = int(elapsed / phase_duration)
-
-        if phase_index % 2 == 0:
-            visible = True
+    def draw(self, screen, cell_size, offset_x, offset_y, visible_override=None):
+        if visible_override is None:
+            visible_now = self.is_visible_now()
         else:
-            visible = False
+            visible_now = bool(visible_override)
 
-        if not visible:
+        if not visible_now:
             return
 
         for row, col in self.flash_cells:
@@ -183,11 +186,67 @@ class CellFlashEffect:
 
 
 class MagicWandEffect:
-    def __init__(self, duration_ms=420):
+    def __init__(self, duration_ms=620):
         self.duration_ms = max(120, duration_ms)
         self.started_at = 0
         self.active_until = 0
         self.cells = []
+
+    def _draw_wand(self, screen, x, y, size, angle, alpha):
+        shaft_len = max(14, int(size * 0.72))
+        shaft_w = max(2, int(size * 0.12))
+
+        dx = math.cos(angle)
+        dy = math.sin(angle)
+        sx = int(round(x - dx * shaft_len * 0.5))
+        sy = int(round(y - dy * shaft_len * 0.5))
+        ex = int(round(x + dx * shaft_len * 0.5))
+        ey = int(round(y + dy * shaft_len * 0.5))
+
+        shaft_color = (
+            int(225 * alpha),
+            int(182 * alpha),
+            int(95 * alpha),
+        )
+        edge_color = (
+            int(130 * alpha),
+            int(95 * alpha),
+            int(55 * alpha),
+        )
+
+        pygame.draw.line(screen, shaft_color, (sx, sy), (ex, ey), shaft_w)
+        pygame.draw.line(screen, edge_color, (sx, sy), (ex, ey), max(1, shaft_w // 2))
+
+        tip_r = max(2, int(size * 0.12))
+        pygame.draw.circle(
+            screen,
+            (int(245 * alpha), int(180 * alpha), int(255 * alpha)),
+            (ex, ey),
+            tip_r,
+        )
+        pygame.draw.circle(
+            screen,
+            (int(255 * alpha), int(240 * alpha), int(255 * alpha)),
+            (ex, ey),
+            max(1, tip_r // 2),
+        )
+
+        sparkle_r = max(5, int(size * 0.18))
+        sparkle_w = max(1, int(size * 0.04))
+        pygame.draw.line(
+            screen,
+            (int(255 * alpha), int(244 * alpha), int(184 * alpha)),
+            (ex - sparkle_r, ey),
+            (ex + sparkle_r, ey),
+            sparkle_w,
+        )
+        pygame.draw.line(
+            screen,
+            (int(255 * alpha), int(244 * alpha), int(184 * alpha)),
+            (ex, ey - sparkle_r),
+            (ex, ey + sparkle_r),
+            sparkle_w,
+        )
 
     def trigger(self, cells):
         norm = []
@@ -222,22 +281,71 @@ class MagicWandEffect:
 
         progress = (now - self.started_at) / self.duration_ms
         progress = max(0.0, min(1.0, progress))
+        fade = 1.0 - progress
 
-        # Two expanding rings plus a center glow for a wand-like burst.
-        ring1 = max(2, int(round(cell_size * (0.18 + 0.42 * progress))))
-        ring2 = max(2, int(round(cell_size * (0.08 + 0.62 * progress))))
-        inner = max(1, int(round(cell_size * (0.1 + 0.2 * (1.0 - progress)))))
+        pulse = 0.5 + 0.5 * math.sin(progress * math.pi * 8.0)
+
+        centers = [
+            (
+                offset_x + col * cell_size + (cell_size // 2),
+                offset_y + row * cell_size + (cell_size // 2),
+            )
+            for row, col in self.cells
+        ]
+        if not centers:
+            return
+
+        avg_cx = sum(p[0] for p in centers) / len(centers)
+        avg_cy = sum(p[1] for p in centers) / len(centers)
+        min_x = min(p[0] for p in centers)
+        max_x = max(p[0] for p in centers)
+        min_y = min(p[1] for p in centers)
+        max_y = max(p[1] for p in centers)
+
+        cast_span = max(max_x - min_x, max_y - min_y)
+        wand_orbit = max(18, int(cast_span * 0.25 + cell_size * (1.2 - 0.25 * progress)))
+        wand_theta = (-math.pi * 0.65) + (progress * math.pi * 2.2)
+        wand_x = int(round(avg_cx + math.cos(wand_theta) * wand_orbit))
+        wand_y = int(round(avg_cy + math.sin(wand_theta) * wand_orbit))
+
+        # Single cast sparkle cluster near the large wand tip.
+        for i in range(7):
+            spark_angle = wand_theta + i * (math.pi * 2 / 7) + (progress * math.pi * 1.2)
+            spark_dist = max(6, int(cell_size * (0.10 + 0.07 * i)))
+            sx = int(round(wand_x + math.cos(spark_angle) * spark_dist))
+            sy = int(round(wand_y + math.sin(spark_angle) * spark_dist))
+            sparkle_r = max(1, int(cell_size * 0.05))
+            sparkle_fade = fade * (0.55 + 0.45 * (1.0 - i / 7.0))
+            pygame.draw.circle(
+                screen,
+                (
+                    int(225 * sparkle_fade),
+                    int(188 * sparkle_fade),
+                    int(255 * sparkle_fade),
+                ),
+                (sx, sy),
+                sparkle_r,
+            )
+
+        # Expanding rings and a pulsing center glow.
+        ring1 = max(2, int(round(cell_size * (0.18 + 0.44 * progress))))
+        ring2 = max(2, int(round(cell_size * (0.08 + 0.68 * progress))))
+        inner = max(1, int(round(cell_size * (0.09 + (0.16 * fade) + (0.06 * pulse)))))
         thickness = max(1, int(round(cell_size * 0.08)))
 
-        fade = 1.0 - progress
         ring_color = (
-            int(220 * fade),
-            int(170 * fade),
+            int(225 * fade),
+            int(172 * fade),
             int(255 * fade),
         )
         glow_color = (
             int(255 * fade),
-            int(230 * fade),
+            int((220 + 35 * pulse) * fade),
+            int(255 * fade),
+        )
+        sparkle_color = (
+            int(255 * fade),
+            int((190 + 50 * pulse) * fade),
             int(255 * fade),
         )
 
@@ -249,10 +357,25 @@ class MagicWandEffect:
             pygame.draw.circle(screen, ring_color, (cx, cy), ring2, thickness)
             pygame.draw.circle(screen, glow_color, (cx, cy), inner)
 
+            # Rotating sparkle particles around each affected cell.
+            base_radius = max(3, int(round(cell_size * (0.18 + 0.34 * progress))))
+            spark_radius = max(1, int(round(cell_size * 0.06)))
+            rotation = progress * math.pi * 4.0
+            for i in range(4):
+                angle = rotation + i * (math.pi / 2)
+                sx = int(round(cx + math.cos(angle) * base_radius))
+                sy = int(round(cy + math.sin(angle) * base_radius))
+                pygame.draw.circle(screen, sparkle_color, (sx, sy), spark_radius)
+
+        wand_size = max(28, int(cell_size * (1.55 + min(0.45, cast_span / max(1, cell_size * 10)))))
+        wand_angle = wand_theta + (math.pi * 0.35 * math.sin(progress * math.pi * 6.0))
+        self._draw_wand(screen, wand_x, wand_y, wand_size, wand_angle, fade)
+
 class MolePopEffect:
-    def __init__(self, duration_ms=600):
+    def __init__(self, duration_ms=900):
         self.duration_ms = max(200, duration_ms)
         self.pops = []
+        self.mole_face = pygame.image.load("pictures/mole_face.png").convert_alpha()
 
     def trigger(self, cells):
         now = pygame.time.get_ticks()
@@ -289,12 +412,12 @@ class MolePopEffect:
             progress = elapsed / self.duration_ms
 
             # Rise -> short hold -> sink
-            if progress < 0.4:
-                visible_amount = progress / 0.4
-            elif progress < 0.7:
+            if progress < 0.3:
+                visible_amount = progress / 0.3
+            elif progress < 0.8:
                 visible_amount = 1.0
             else:
-                visible_amount = max(0.0, 1.0 - ((progress - 0.7) / 0.3))
+                visible_amount = max(0.0, 1.0 - ((progress - 0.8) / 0.2))
 
             row = pop["row"]
             col = pop["col"]
@@ -303,54 +426,94 @@ class MolePopEffect:
             y = offset_y + row * cell_size
 
             # Small hole near bottom of the target cell
-            hole_w = int(cell_size * 0.58)
-            hole_h = max(4, int(cell_size * 0.16))
+            hole_w = int(cell_size * 0.78)
+            hole_h = max(4, int(cell_size * 0.22))
             hole_x = x + (cell_size - hole_w) // 2
-            hole_y = y + int(cell_size * 0.72)
+            hole_y = y + int(cell_size * 0.70)
+
+            # Outer dirt mound
+            mound_w = int(hole_w * 1.18)
+            mound_h = int(hole_h * 1.9)
+            mound_x = hole_x - (mound_w - hole_w) // 2
+            mound_y = hole_y - int(hole_h * 0.35)
 
             pygame.draw.ellipse(
                 screen,
-                (30, 20, 10),
+                (95, 72, 42),
+                (mound_x, mound_y, mound_w, mound_h)
+            )
+
+            #Hole dark base
+            pygame.draw.ellipse(
+                screen,
+                (25, 18, 10),
                 (hole_x, hole_y, hole_w, hole_h)
             )
 
+            # Inner ligher
+            pygame.draw.ellipse(
+                screen,
+                (55, 40, 22),
+                (hole_x + 2, hole_y + 1, max(2, hole_w - 4), max(2, hole_h - 2))
+            )
+
             # Mole body rises from the hole
-            mole_w = int(cell_size * 0.56)
-            max_mole_h = int(cell_size * 0.65)
+            mole_w = int(cell_size * 0.72)
+            max_mole_h = int(cell_size * 0.85)
             mole_h = max(1, int(max_mole_h * visible_amount))
 
             mole_x = x + (cell_size - mole_w) // 2
             mole_y = hole_y - mole_h + 2
 
             # Body
-            pygame.draw.rect(
-                screen,
-                (125, 88, 55),
-                (mole_x, mole_y, mole_w, mole_h)
+            body_color = (120, 88, 55)
+            head_color = (145, 104, 68)
+            snout_color = (186, 145, 110)
+            nose_color = (220, 120, 140)
+
+            # Head size
+            head_w = mole_w
+            head_h = max(6, int(mole_h * 0.42))
+
+            # Draw a rectangular body shaft and a rounded head on top
+            body_top = mole_y + head_h // 2
+            body_h = max(1, hole_y - body_top + hole_h // 2)
+
+            # Body shaft same size as head, but only visible below the head
+            body_w = head_w
+            body_x = mole_x
+
+            # Body shaft
+            if body_h > 0:
+                pygame.draw.rect(
+                    screen,
+                    body_color,
+                    (body_x, body_top, body_w, body_h)
+                )
+
+            # Round head
+            head_extra = int(head_h * 0.35)
+
+            head_rect = pygame.Rect(
+                mole_x, mole_y, head_w,
+                head_h + head_extra
             )
 
-            # Head top
-            head_h = max(2, int(mole_h * 0.35))
-            pygame.draw.rect(
-                screen,
-                (145, 104, 68),
-                (mole_x + 2, mole_y, max(2, mole_w - 4), head_h)
-            )
+            pygame.draw.ellipse(screen, head_color, head_rect)
 
-            # Eyes
-            if mole_h > 6:
-                eye_size = max(1, cell_size // 12)
-                eye_y = mole_y + max(1, head_h // 2)
-                pygame.draw.rect(screen, (0, 0, 0), (mole_x + 4, eye_y, eye_size, eye_size))
-                pygame.draw.rect(screen, (0, 0, 0), (mole_x + mole_w - 4 - eye_size, eye_y, eye_size, eye_size))
+            # Face image
+            if mole_h > 10:
+                face_w = int(head_w * 1.9)
+                face_h = int((head_h + head_extra) * 2.0)
 
-            # Nose
-            if mole_h > 8:
-                nose_w = max(2, cell_size // 8)
-                nose_h = max(2, cell_size // 10)
-                nose_x = mole_x + (mole_w - nose_w) // 2
-                nose_y = mole_y + head_h + 1
-                pygame.draw.rect(screen, (220, 120, 140), (nose_x, nose_y, nose_w, nose_h))
+                face_img = pygame.transform.scale(self.mole_face, (face_w, face_h))
+
+                face_x = mole_x + (head_w - face_w) // 2
+                face_y = mole_y - int((head_h + head_extra) * 0.4)
+
+                screen.blit(face_img, (face_x, face_y))
+
+
 
         self.pops = active_pops
 

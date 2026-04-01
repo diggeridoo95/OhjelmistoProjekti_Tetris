@@ -2,6 +2,8 @@ import pygame, sys, os
 from colors import Colors
 from game import Game
 from blocks import *
+from bomb_icon import draw_bomb_cell
+from magic_wand_icon import draw_magic_wand_cell
 from startgame import StartScreen
 from pausemenu import PauseMenu
 import music
@@ -21,8 +23,8 @@ pygame.display.set_caption("Tetris Overwhelmed")
 
 is_fullscreen = False
 windowed_size = (INITIAL_WIDTH, INITIAL_HEIGHT)
-music_volume = 0.70
-sfx_volume = 0.70
+music_volume = 0.10
+sfx_volume = 0.10
 game_music_file = "game_music.mp3"
 
 music.initialize()
@@ -193,6 +195,8 @@ while True:
 				if event.key == pygame.K_q:		#debug key to give player all abilities for testing
 					game.has_bomb = True
 					game.has_magic_wand = True
+				if event.key == pygame.K_i:		#debug key to test invisibility pre-flash sequence
+					game.trigger_invisibility_test()
 
 
 			if event.type == GAME_UPDATE and game.game_over == False and game.is_level_transitioning() == False and game_paused == False:
@@ -340,37 +344,35 @@ while True:
 		screen.blit(time_surface, time_surface.get_rect(center=time_value_rect.center))
 		
 		# Display ability status
+		icon_drawers = []
 		if game.has_bomb:
-			# Draw a bomb block preview in the ability rect
-			bomb_block = BombBlock()
-			bomb_block.cell_size = layout["cell_size"]
-			tiles = bomb_block.get_cell_positions()
-			if tiles:
-				min_col = min(tile.column for tile in tiles)
-				max_col = max(tile.column for tile in tiles)
-				min_row = min(tile.row for tile in tiles)
-				max_row = max(tile.row for tile in tiles)
-				
-				tile_size = bomb_block.cell_size
-				shape_width = (max_col - min_col + 1) * tile_size
-				shape_height = (max_row - min_row + 1) * tile_size
-				
-				offset_x = ability_rect.x + (ability_rect.width - shape_width) // 2 - (min_col * tile_size)
-				offset_y = ability_rect.y + (ability_rect.height - shape_height) // 2 - (min_row * tile_size)
-				bomb_block.draw(screen, offset_x, offset_y)
-			if game.has_magic_wand:
-				ability_text += " | Wand(S): Ready"
+			icon_drawers.append(draw_bomb_cell)
+		if game.has_magic_wand:
+			icon_drawers.append(draw_magic_wand_cell)
+
+		if icon_drawers:
+			icon_count = len(icon_drawers)
+			gap = max(8, int(ability_rect.width * 0.08))
+			icon_size = min(
+				ability_rect.height - max(10, int(ability_rect.height * 0.18)),
+				(ability_rect.width - (icon_count - 1) * gap - max(10, int(ability_rect.width * 0.12))) // icon_count,
+			)
+			icon_size = max(16, icon_size)
+
+			total_width = icon_count * icon_size + (icon_count - 1) * gap
+			start_x = ability_rect.x + (ability_rect.width - total_width) // 2
+			icon_y = ability_rect.y + (ability_rect.height - icon_size) // 2
+
+			for i, draw_icon in enumerate(icon_drawers):
+				icon_x = start_x + i * (icon_size + gap)
+				icon_rect = pygame.Rect(icon_x, icon_y, icon_size, icon_size)
+				draw_icon(screen, icon_rect)
 		else:
-			if game.has_magic_wand:
-				ability_text = "Wand(S): Ready"
-				ability_color = (200, 160, 255)
-			else:
-				# Show "No Ability" text when bomb is not available
-				ability_text = "No Ability"
-				ability_color = Colors.white
-				ability_value_surface = small_font.render(ability_text, True, ability_color)
-				screen.blit(ability_value_surface, ability_value_surface.get_rect(centerx = ability_rect.centerx,
-			                                                                     centery = ability_rect.centery))
+			ability_value_surface = small_font.render("No Ability", True, Colors.white)
+			screen.blit(
+				ability_value_surface,
+				ability_value_surface.get_rect(centerx=ability_rect.centerx, centery=ability_rect.centery),
+			)
 
 		game.draw(screen, hide_blocks=game_paused)
 
@@ -410,9 +412,9 @@ while True:
 				else:
 					overlay_text_surface = game_over_surface
 					shadow_text = "Game Over!"
-					shadow_surface = title_font.render(shadow_text, True, Colors.dark_grey)
-					screen.blit(shadow_surface, shadow_surface.get_rect(center=(overlay_bg.centerx + 2, overlay_bg.centery +2)))
-					screen.blit(overlay_text_surface, overlay_text_surface.get_rect(center=overlay_bg.center))
+				shadow_surface = title_font.render(shadow_text, True, Colors.dark_grey)
+				screen.blit(shadow_surface, shadow_surface.get_rect(center=(overlay_bg.centerx + 2, overlay_bg.centery +2)))
+				screen.blit(overlay_text_surface, overlay_text_surface.get_rect(center=overlay_bg.center))
 			elif game.is_level_transitioning():
 				transition_text = game.get_transition_text()
 				overlay_text_surface = transition_font.render(game.get_transition_text(), True, Colors.white)
