@@ -77,10 +77,7 @@ class MoleEvent(LevelEvent):
     def on_tick(self, game):
         if game.game_over or game.is_level_transitioning():   #Cant trigger if game is over or transitioning between levels
             return
-        
-        if game.is_global_event_cooldown_active():   # Global event cooldown check
-            return
-        
+
         now = pygame.time.get_ticks()
 
         remaining = []
@@ -96,6 +93,9 @@ class MoleEvent(LevelEvent):
                 remaining.append(removal)
 
         self.pending_removals = remaining
+
+        if game.is_global_event_cooldown_active():   # Global event cooldown check
+            return
 
         if now < self.cooldown_until_ms:     #Check if we're still in cooldown period
             return
@@ -145,10 +145,6 @@ class MoleEvent(LevelEvent):
                 'remove_at': now + self.remove_delay_ms
             })
 
-        def start_global_event_cooldown(self, durations_ms=None):
-            if durations_ms is None:
-                durations_ms = self.current_level.global_event_cooldown_ms
-            self.global_event_cooldown_until_ms = pygame.time.get_ticks() + durations_ms
         sfx.play_mole_event()
         
         
@@ -157,6 +153,7 @@ class MoleEvent(LevelEvent):
         game.last_event_timer = 90
 
         self.cooldown_until_ms = now + self.cooldown_ms   #enter cooldown after triggering
+        game.start_global_event_cooldown()
 
 
 class InvisibilityEvent(LevelEvent):
@@ -188,10 +185,7 @@ class InvisibilityEvent(LevelEvent):
         
         # Trigger invisibility with flash effect
         game.trigger_invisibility(self.duration_ms)
-        def start_global_event_cooldown(self, durations_ms=None):
-            if durations_ms is None:
-                durations_ms = self.current_level.global_event_cooldown_ms
-            self.global_event_cooldown_until_ms = pygame.time.get_ticks() + durations_ms
+
         # Flash locked cells 3 times before invisibility starts.
         game.trigger_invisibility(self.duration_ms, delay_ms=self.PRE_FLASH_DURATION_MS)
         sfx.play_inversion()
@@ -204,3 +198,48 @@ class InvisibilityEvent(LevelEvent):
             )
         game.last_event_text = "Invisibility!"
         game.last_event_timer = 90
+        game.start_global_event_cooldown()
+
+class InversionEvent(LevelEvent):
+
+    def __init__(self, trigger_chance=0.003, lock_target=3, check_interval_ms=3000, cooldown_ms=12000):
+        self.trigger_chance = trigger_chance
+        self.lock_target = max(1, lock_target)
+        self.check_interval_ms = check_interval_ms
+        self.cooldown_ms = cooldown_ms
+        self.next_check_ms = 0
+        self.cooldown_until_ms = 0
+
+    def on_level_start(self, game):
+        now = pygame.time.get_ticks()
+        self.next_check_ms = now + self.check_interval_ms
+        self.cooldown_until_ms = 0
+
+    def on_tick(self, game):
+        if game.game_over or game.is_level_transitioning():
+            return
+
+        if game.is_global_event_cooldown_active():
+            return
+
+        # Do not trigger a new inversion while one is active or already queued.
+        if game.inversion.inverted_gravity or game.inversion.pending_activation:
+            return
+
+        now = pygame.time.get_ticks()
+
+        if now < self.cooldown_until_ms:
+            return
+
+        if now < self.next_check_ms:
+            return
+
+        self.next_check_ms = now + self.check_interval_ms
+
+        if random.random() > self.trigger_chance:
+            return
+
+        game.inversion.lock_target = self.lock_target
+        game.inversion.pending_activation = True
+        game.start_global_event_cooldown()
+        self.cooldown_until_ms = now + self.cooldown_ms
