@@ -61,7 +61,7 @@ class Game:
 		self.has_magic_wand = False  # Flag indicating player owns magic wand ability
 		self.last_block_position = None  # Track position of last locked block for bomb explosion
 
-		self.apply_level(1)  # Start at level 2 for testing purposes
+		#self.apply_level(1)  # Start at level 2 for testing purposes
 							#Can be adjusted for further testing
 
 	def get_level_score(self):
@@ -551,7 +551,7 @@ class Game:
 		if self.time_left > 0:
 			self.time_left -= 1
 		# Check 40-second inverted gravity event timer
-		self.update_inversion_event_timer()
+		# self.update_inversion_event_timer()
 		if self.time_left <= 0:
 			self.time_left = 0
 			if self.try_advance_level() == False:
