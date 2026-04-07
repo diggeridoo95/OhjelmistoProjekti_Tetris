@@ -399,22 +399,22 @@ class MolePopEffect:
         for _ in range(amount):
             side = random.choice([-1, 1])
 
-        pop["particles"].append({
-            "spawn": now + random.randint(0, 30),
-            "life": random.randint(260, 520),
-            "x_offset": random.uniform(-0.12, 0.12),
-            "y_offset": random.uniform(-0.05, 0.06),
-            "vx": random.uniform(0.9, 2.8) * side,
-            "vy": random.uniform(-7.5, -4.5),
-            "gravity": random.uniform(0.12, 0.18),
-            "radius": random.uniform(0.15, 0.25),
-            "color": random.choice([
-                (92, 69, 40),
-                (110, 82, 48),
-                (125, 94, 58),
-                (72, 52, 29),
-            ]),
-        })
+            pop["particles"].append({
+                "spawn": now + random.randint(0, 30),
+                "life": random.randint(260, 520),
+                "x_offset": random.uniform(-0.12, 0.12),
+                "y_offset": random.uniform(-0.05, 0.06),
+                "vx": random.uniform(1.0, 3.0) * side,
+                "vy": random.uniform(-3.8, -1.0),
+                "gravity": random.uniform(0.12, 0.18),
+                "radius": random.uniform(0.07, 0.15),
+                 "color": random.choice([
+                    (92, 69, 40),
+                    (110, 82, 48),
+                    (125, 94, 58),
+                    (72, 52, 29),
+                ]),
+            })
 
     def trigger(self, cells):
         now = pygame.time.get_ticks()
@@ -448,6 +448,65 @@ class MolePopEffect:
         else:
             t = (progress - hold_end) / self.sink_portion
             return max(0.0, 1.0 - self._ease_in_cubic(t))
+        
+    def _get_paw_visibility(self, progress):
+        rise_end = self.rise_portion
+        hold_end = rise_end + self.hold_portion
+
+        # Show paws only near the peak of the animation
+        paw_start = rise_end * 0.72
+
+        if progress < paw_start:
+            return 0.0
+        elif progress < rise_end:
+            t = (progress - paw_start) / max(0.001, rise_end - paw_start)
+            return self._ease_out_cubic(t)
+        elif progress < hold_end:
+            return 1.0
+        else:
+            sink_t = (progress - hold_end) / max(0.001, self.sink_portion)
+            return max(0.0, 1.0 - min(1.0, sink_t * 6.0))
+        
+    def _draw_paws(self, screen, mound_x, mound_y, mound_w, mound_h, hole_y, cell_size, visibility):
+        if visibility <= 0.0:
+            return
+
+        paw_color = (132, 96, 62)
+        claw_color = (92, 72, 52)
+
+        paw_w = max(6, int(cell_size * 0.18 * visibility))
+        paw_h = max(4, int(cell_size * 0.12 * visibility))
+
+        # Place paws near the top edge of the mound, left and right of center.
+        center_x = mound_x + mound_w // 2
+        paw_y = mound_y + int(mound_h * 0.18)
+
+        left_paw_rect = pygame.Rect(
+            center_x - int(cell_size * 0.24) - paw_w,
+            paw_y,
+            paw_w,
+            paw_h
+        )
+        right_paw_rect = pygame.Rect(
+            center_x + int(cell_size * 0.24),
+            paw_y,
+            paw_w,
+            paw_h
+        )
+
+        outline_color = (0, 0, 0)
+        outline_width = max(1, int(cell_size * 0.04))
+
+        # Fill
+        pygame.draw.ellipse(screen, paw_color, left_paw_rect)
+        pygame.draw.ellipse(screen, paw_color, right_paw_rect)
+
+        # Outline
+        pygame.draw.ellipse(screen, outline_color, left_paw_rect, outline_width)
+        pygame.draw.ellipse(screen, outline_color, right_paw_rect, outline_width)
+
+
+
 
     def _draw_particles(self, screen, pop, now, cell_size, x, y, hole_x, hole_y, hole_w, hole_h):
         alive_particles = []
@@ -496,15 +555,16 @@ class MolePopEffect:
 
             progress = elapsed / self.duration_ms
             visible_amount = self._get_visible_amount(progress)
+            paw_visibility = self._get_paw_visibility(progress)
 
             # Keep spraying dirt briefly while the mole is digging upward
-            spray_until = 1.0  # portion of total animation
-            emit_interval = 25  # milliseconds between small bursts
+            spray_until = 0.6  # portion of total animation
+            emit_interval = 60 # milliseconds between small bursts
 
             if progress < spray_until:
                 while now - pop["last_emit"] >= emit_interval:
                     pop["last_emit"] += emit_interval
-                    self._emit_dirt_particles(pop, pop["last_emit"], amount=random.randint(70, 80))
+                    self._emit_dirt_particles(pop, pop["last_emit"], amount=random.randint(2, 4))
 
             row = pop["row"]
             col = pop["col"]
@@ -530,8 +590,17 @@ class MolePopEffect:
                 (mound_x, mound_y, mound_w, mound_h)
             )
 
-            # Dirt particles
-            self._draw_particles(screen, pop, now, cell_size, x, y, hole_x, hole_y, hole_w, hole_h)
+            self._draw_paws(
+                screen,
+                mound_x,
+                mound_y,
+                mound_w,
+                mound_h,
+                hole_y,
+                cell_size,
+                paw_visibility
+            )
+
 
             # Hole base
             pygame.draw.ellipse(
@@ -593,6 +662,9 @@ class MolePopEffect:
                 face_y = draw_face_y - int((head_h + head_extra) * 0.4)
 
                 screen.blit(face_img, (face_x, face_y))
+
+            # Dirt particles
+            self._draw_particles(screen, pop, now, cell_size, x, y, hole_x, hole_y, hole_w, hole_h)
 
         self.pops = active_pops
 
