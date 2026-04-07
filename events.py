@@ -66,7 +66,7 @@ class MoleEvent(LevelEvent):
         self.cooldown_until_ms = 0
 
         self.pending_removals = []   #List of cells to remove after pop effect completes
-        self.remove_delay_ms = 120   #Delay for actual removal to wait for animation to play
+        self.remove_delay_ms = 350   #Delay for actual removal to wait for animation to play
 
     def on_level_start(self, game):
         now = pygame.time.get_ticks()
