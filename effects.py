@@ -474,21 +474,25 @@ class MolePopEffect:
         paw_color = (132, 96, 62)
         claw_color = (92, 72, 52)
 
-        paw_w = max(6, int(cell_size * 0.18 * visibility))
-        paw_h = max(4, int(cell_size * 0.12 * visibility))
+        scale = max(0.75, visibility)
+
+        paw_w = max(7, int(cell_size * 0.17 * scale))
+        paw_h = max(10, int(cell_size * 0.24 * scale))
 
         # Place paws near the top edge of the mound, left and right of center.
         center_x = mound_x + mound_w // 2
-        paw_y = mound_y + int(mound_h * 0.18)
+        paw_y = hole_y + int(cell_size * 0.13)
+
+        offset = int(cell_size * 0.10)
 
         left_paw_rect = pygame.Rect(
-            center_x - int(cell_size * 0.24) - paw_w,
+            center_x - offset - paw_w,
             paw_y,
             paw_w,
             paw_h
         )
         right_paw_rect = pygame.Rect(
-            center_x + int(cell_size * 0.24),
+            center_x + offset,
             paw_y,
             paw_w,
             paw_h
@@ -559,12 +563,12 @@ class MolePopEffect:
 
             # Keep spraying dirt briefly while the mole is digging upward
             spray_until = 0.6  # portion of total animation
-            emit_interval = 60 # milliseconds between small bursts
+            emit_interval = 50 # milliseconds between small bursts
 
             if progress < spray_until:
                 while now - pop["last_emit"] >= emit_interval:
                     pop["last_emit"] += emit_interval
-                    self._emit_dirt_particles(pop, pop["last_emit"], amount=random.randint(2, 4))
+                    self._emit_dirt_particles(pop, pop["last_emit"], amount=random.randint(3, 5))
 
             row = pop["row"]
             col = pop["col"]
@@ -588,17 +592,6 @@ class MolePopEffect:
                 screen,
                 (95, 72, 42),
                 (mound_x, mound_y, mound_w, mound_h)
-            )
-
-            self._draw_paws(
-                screen,
-                mound_x,
-                mound_y,
-                mound_w,
-                mound_h,
-                hole_y,
-                cell_size,
-                paw_visibility
             )
 
 
@@ -662,6 +655,17 @@ class MolePopEffect:
                 face_y = draw_face_y - int((head_h + head_extra) * 0.4)
 
                 screen.blit(face_img, (face_x, face_y))
+
+            self._draw_paws(
+                screen,
+                mound_x,
+                mound_y,
+                mound_w,
+                mound_h,
+                hole_y,
+                cell_size,
+                paw_visibility
+            )
 
             # Dirt particles
             self._draw_particles(screen, pop, now, cell_size, x, y, hole_x, hole_y, hole_w, hole_h)
