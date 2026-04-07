@@ -374,8 +374,8 @@ class MagicWandEffect:
         self._draw_wand(screen, wand_x, wand_y, wand_size, wand_angle, fade)
 
 class MolePopEffect:
-    def __init__(self, duration_ms=1200):
-        self.duration_ms = max(400, duration_ms)
+    def __init__(self, duration_ms=1800):
+        self.duration_ms = max(600, duration_ms)
         self.pops = []
 
         base_dir = os.path.dirname(__file__)
@@ -383,9 +383,13 @@ class MolePopEffect:
         self.mole_face = pygame.image.load(mole_face_path).convert_alpha()
 
         # Timing split for slower movement
-        self.rise_portion = 0.42
-        self.hold_portion = 0.28
-        self.sink_portion = 0.30
+        self.hole_open_portion = 0.30
+        self.mole_delay_portion = 0.08
+        self.rise_portion = 0.24
+        self.hold_portion = 0.20
+        self.sink_portion = 0.18
+        self.hole_open_portion = 0.30
+        self.mole_delay_portion = 0.08
 
     def _ease_out_cubic(self, t):
         t = max(0.0, min(1.0, t))
@@ -394,6 +398,26 @@ class MolePopEffect:
     def _ease_in_cubic(self, t):
         t = max(0.0, min(1.0, t))
         return t ** 3
+    
+    def _get_hole_openness(self, progress):
+        if progress <= 0.0:
+            return 0.0
+        if progress >= self.hole_open_portion:
+            return 1.0
+        
+        t = progress / max(0.001, self.hole_open_portion)
+        return self._ease_out_cubic(t)
+    
+    def _get_mole_phase_progress(self, progress):
+        mole_start = self.hole_open_portion + self.mole_delay_portion
+        if progress <= mole_start:
+            return 0.0
+        
+        mole_span = self.rise_portion + self.hold_portion + self.sink_portion
+        if mole_span <= 0.0:
+            return 1.0
+        
+        return min(1.0, (progress - mole_start) / mole_span)
 
     def _emit_dirt_particles(self, pop, now, amount=3):
         for _ in range(amount):
@@ -437,24 +461,28 @@ class MolePopEffect:
         self.pops = []
 
     def _get_visible_amount(self, progress):
-        rise_end = self.rise_portion
+        mole_start = self.hole_open_portion + self.mole_delay_portion
+        rise_end = mole_start + self.rise_portion
         hold_end = rise_end + self.hold_portion
 
-        if progress < rise_end:
-            t = progress / rise_end
+        if progress < mole_start:
+            return 0.0
+        elif progress < rise_end:
+            t = (progress - mole_start) / max(0.001, self.rise_portion)
             return self._ease_out_cubic(t)
         elif progress < hold_end:
             return 1.0
         else:
-            t = (progress - hold_end) / self.sink_portion
+            t = (progress - hold_end) / max(0.001, self.sink_portion)
             return max(0.0, 1.0 - self._ease_in_cubic(t))
         
     def _get_paw_visibility(self, progress):
-        rise_end = self.rise_portion
+        mole_start = self.hole_open_portion + self.mole_delay_portion
+        rise_end = mole_start + self.rise_portion
         hold_end = rise_end + self.hold_portion
 
-        # Show paws only near the peak of the animation
-        paw_start = rise_end * 0.72
+        # Show paws only near the peak of the mole animation
+        paw_start = mole_start + (self.rise_portion * 0.72)
 
         if progress < paw_start:
             return 0.0
@@ -558,12 +586,17 @@ class MolePopEffect:
             active_pops.append(pop)
 
             progress = elapsed / self.duration_ms
+            
+            hole_openness = self._get_hole_openness(progress)
             visible_amount = self._get_visible_amount(progress)
             paw_visibility = self._get_paw_visibility(progress)
+            mole_phase_progress = self._get_mole_phase_progress(progress)
 
             # Keep spraying dirt briefly while the mole is digging upward
-            spray_until = 0.6  # portion of total animation
-            emit_interval = 50 # milliseconds between small bursts
+            spray_until = self.hole_open_portion + self.mole_delay_portion + (self.rise_portion * 0.85)
+
+            # Milliseconds between small burtsts
+            emit_interval = 50
 
             if progress < spray_until:
                 while now - pop["last_emit"] >= emit_interval:
@@ -577,16 +610,18 @@ class MolePopEffect:
             y = offset_y + row * cell_size
 
             # Hole near bottom of cell
-            hole_w = int(cell_size * 0.90)
-            hole_h = max(4, int(cell_size * 0.30))
+            max_hole_w = int(cell_size * 0.90)
+            max_hole_h = max(4, int(cell_size * 0.30))
+            hole_w = max(2, int(max_hole_w * (0.35 + 0.65 * hole_openness)))
+            hole_h = max(2, int(max_hole_h * hole_openness))
             hole_x = x + (cell_size - hole_w) // 2
-            hole_y = y + int(cell_size * 0.55)
+            hole_y = y + int(cell_size * (0.55 + (1.0 - hole_openness) * 0.08))
 
             # Dirt mound
-            mound_w = int(hole_w * 1.35)
-            mound_h = int(hole_h * 2.40)
+            mound_w = max(hole_w + 4, int((max_hole_w * 1.35) * (0.45 + 0.55 * hole_openness)))
+            mound_h = max(4, int((max_hole_h * 2.40) * (0.35 + 0.65 * hole_openness)))
             mound_x = hole_x - (mound_w - hole_w) // 2
-            mound_y = hole_y - int(hole_h * 0.65)
+            mound_y = hole_y - int(mound_h * 0.28)
 
             pygame.draw.ellipse(
                 screen,
@@ -643,7 +678,7 @@ class MolePopEffect:
             pygame.draw.ellipse(screen, head_color, head_rect)
 
             # Gentle bob while visible
-            bob = int(math.sin(progress * math.pi * 5.0) * max(1, cell_size * 0.03))
+            bob = int(math.sin(mole_phase_progress * math.pi * 5.0) * max(1, cell_size * 0.03))
             draw_face_y = mole_y + bob
 
             if mole_h > 10:
