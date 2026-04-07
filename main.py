@@ -10,8 +10,8 @@ import music
 import sfx
 pygame.init()
 
-INITIAL_WIDTH = 1000
-INITIAL_HEIGHT = 720
+INITIAL_WIDTH = 960
+INITIAL_HEIGHT = 540
 GRID_COLS = 10
 GRID_ROWS = 20
 BASE_CELL = 30
@@ -120,13 +120,17 @@ while True:
 			# Handle start screen events
 			start_action = start_screen.handle_event(event)
 
-			if "fullscreen" in start_action and start_action["fullscreen"] != is_fullscreen:
+			if "fullscreen" in start_action:
 				is_fullscreen = start_action["fullscreen"]
 				if is_fullscreen:
 					windowed_size = screen.get_size()
-					screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+					os.environ['SDL_VIDEO_CENTERED'] = '1'
+					screen = pygame.display.set_mode((1920, 1080), pygame.NOFRAME | pygame.RESIZABLE)
 				else:
+					os.environ['SDL_VIDEO_CENTERED'] = '0'
 					screen = pygame.display.set_mode(windowed_size, pygame.RESIZABLE)
+				start_screen.is_fullscreen = is_fullscreen
+				start_screen.screen_width, start_screen.screen_height = screen.get_size()
 
 			if "music_volume" in start_action:
 				music_volume = start_action["music_volume"]
@@ -198,6 +202,17 @@ while True:
 				if event.key == pygame.K_i:		#debug key to test invisibility pre-flash sequence
 					game.trigger_invisibility_test()
 
+				if event.key == pygame.K_f:
+					is_fullscreen = not is_fullscreen
+					if is_fullscreen:
+						windowed_size = screen.get_size()
+						os.environ['SDL_VIDEO_CENTERED'] = '1'
+						screen = pygame.display.set_mode((1920, 1080), pygame.NOFRAME | pygame.RESIZABLE)
+					else:
+						os.environ['SDL_VIDEO_CENTERED'] = '0'
+						screen = pygame.display.set_mode(windowed_size, pygame.RESIZABLE)
+					start_screen.is_fullscreen = is_fullscreen
+					start_screen.screen_width, start_screen.screen_height = screen.get_size()
 
 			if event.type == GAME_UPDATE and game.game_over == False and game.is_level_transitioning() == False and game_paused == False:
 				game.move_down()
