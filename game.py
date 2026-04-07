@@ -467,7 +467,7 @@ class Game:
 		if not invisible:
 			self.hard_drop_lines.draw(screen, self.grid.cell_size, self.grid_offset_x, self.grid_offset_y)
 			self.inversion_flash_effect.draw(screen, screen.get_width(), screen.get_height())
-		if self.game_over == False and not invisible:
+		if self.game_over == False and not invisible and not hide_blocks:
 			self.draw_current_block_clipped(screen, self.grid_offset_x, self.grid_offset_y)
 			self.invisibility_preflash_effect.draw(
 				screen,

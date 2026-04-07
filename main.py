@@ -23,8 +23,9 @@ pygame.display.set_caption("Tetris Overwhelmed")
 
 is_fullscreen = False
 windowed_size = (INITIAL_WIDTH, INITIAL_HEIGHT)
-music_volume = 0.10
-sfx_volume = 0.10
+music_volume = 0.40
+sfx_volume = 0.50
+main_menu_music_file = "mainmenu.mp3"
 game_music_file = "game_music.mp3"
 
 music.initialize()
@@ -32,6 +33,8 @@ music.set_volume(music_volume)
 
 sfx.initialize()
 sfx.set_volume(sfx_volume)
+
+music.play_background_if_changed(main_menu_music_file)
 
 clock = pygame.time.Clock()
 
@@ -145,8 +148,7 @@ while True:
 				game = Game()
 				game_paused = False
 				pause_menu = PauseMenu()
-				if music.is_playing() == False:
-					music.play_background(game_music_file)
+				music.play_background_if_changed(game_music_file)
 				pygame.time.set_timer(GAME_UPDATE, game.get_drop_interval())
 
 		else:
@@ -161,7 +163,7 @@ while True:
 					game = None
 					pause_menu = None
 					game_paused = False
-					music.stop()
+					music.play_background_if_changed(main_menu_music_file)
 				continue
 
 			if event.type == pygame.KEYDOWN:
@@ -173,7 +175,7 @@ while True:
 						game = None
 						pause_menu = None
 						game_paused = False
-						music.stop()
+						music.play_background_if_changed(main_menu_music_file)
 					continue
 				if event.key == pygame.K_p and game.game_over == False:
 					game_paused = True

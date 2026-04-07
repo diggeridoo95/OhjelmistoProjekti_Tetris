@@ -3,6 +3,8 @@ import os
 
 # Music volume control
 current_volume = 0.10
+current_track = None
+current_loops = None
 
 # Path to music files
 MUSIC_DIR = os.path.join(os.path.dirname(__file__), "sounds", "music")
@@ -42,11 +44,14 @@ def play(filename, loops=0):
 		filename (str): Name of the music file in the sounds/music directory
 		loops (int): Number of times to loop (-1 for infinite loop, 0 for play once)
 	"""
+	global current_track, current_loops
 	try:
 		music_path = os.path.join(MUSIC_DIR, filename)
 		if os.path.exists(music_path):
 			pygame.mixer.music.load(music_path)
 			pygame.mixer.music.play(loops)
+			current_track = filename
+			current_loops = loops
 		else:
 			print(f"Warning: Music file not found: {music_path}")
 	except pygame.error as e:
@@ -63,10 +68,21 @@ def play_background(filename):
 	play(filename, loops=-1)
 
 
+def play_background_if_changed(filename):
+	"""Play looping music only when the requested track is different."""
+	if current_track == filename and current_loops == -1 and is_playing():
+		return False
+	play_background(filename)
+	return True
+
+
 def stop():
 	"""Stop the currently playing music."""
+	global current_track, current_loops
 	try:
 		pygame.mixer.music.stop()
+		current_track = None
+		current_loops = None
 	except pygame.error:
 		pass
 
