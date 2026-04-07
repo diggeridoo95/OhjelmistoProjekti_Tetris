@@ -192,6 +192,24 @@ class MagicWandEffect:
         self.active_until = 0
         self.cells = []
 
+    def _draw_soft_glow(self, screen, x, y, radius, rgb, alpha):
+        if radius <= 1 or alpha <= 0:
+            return
+
+        glow_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+        center = (radius, radius)
+        pygame.draw.circle(glow_surface, (rgb[0], rgb[1], rgb[2], int(alpha * 0.35)), center, radius)
+        pygame.draw.circle(glow_surface, (rgb[0], rgb[1], rgb[2], int(alpha * 0.25)), center, max(1, int(radius * 0.72)))
+        pygame.draw.circle(glow_surface, (255, 255, 255, int(alpha * 0.18)), center, max(1, int(radius * 0.42)))
+        screen.blit(glow_surface, (x - radius, y - radius))
+
+    def _draw_star(self, screen, cx, cy, size, color, width=1):
+        pygame.draw.line(screen, color, (cx - size, cy), (cx + size, cy), width)
+        pygame.draw.line(screen, color, (cx, cy - size), (cx, cy + size), width)
+        diag = max(1, int(size * 0.72))
+        pygame.draw.line(screen, color, (cx - diag, cy - diag), (cx + diag, cy + diag), width)
+        pygame.draw.line(screen, color, (cx - diag, cy + diag), (cx + diag, cy - diag), width)
+
     def _draw_wand(self, screen, x, y, size, angle, alpha):
         shaft_len = max(14, int(size * 0.72))
         shaft_w = max(2, int(size * 0.12))
@@ -282,6 +300,7 @@ class MagicWandEffect:
         progress = (now - self.started_at) / self.duration_ms
         progress = max(0.0, min(1.0, progress))
         fade = 1.0 - progress
+        circle_fade = max(0.0, (fade - 0.16) / 0.84)
 
         pulse = 0.5 + 0.5 * math.sin(progress * math.pi * 8.0)
 
@@ -304,7 +323,7 @@ class MagicWandEffect:
 
         cast_span = max(max_x - min_x, max_y - min_y)
         wand_orbit = max(18, int(cast_span * 0.25 + cell_size * (1.2 - 0.25 * progress)))
-        wand_theta = (-math.pi * 0.65) + (progress * math.pi * 2.2)
+        wand_theta = (-math.pi * 0.65) + (progress * math.pi * 1.35)
         wand_x = int(round(avg_cx + math.cos(wand_theta) * wand_orbit))
         wand_y = int(round(avg_cy + math.sin(wand_theta) * wand_orbit))
 
@@ -327,6 +346,24 @@ class MagicWandEffect:
                 sparkle_r,
             )
 
+        # Wand aura and twinkling stars to sell the magic cast.
+        self._draw_soft_glow(
+            screen,
+            wand_x,
+            wand_y,
+            max(10, int(cell_size * (0.65 + 0.18 * pulse))),
+            (194, 112, 255),
+            180 * fade,
+        )
+        for i in range(4):
+            twinkle_angle = wand_theta + i * (math.pi / 2) + progress * math.pi * 3.0
+            twinkle_dist = max(5, int(cell_size * (0.24 + 0.04 * i)))
+            tx = int(round(wand_x + math.cos(twinkle_angle) * twinkle_dist))
+            ty = int(round(wand_y + math.sin(twinkle_angle) * twinkle_dist))
+            star_size = max(2, int(cell_size * 0.08))
+            star_color = (int(245 * fade), int((185 + 45 * pulse) * fade), int(255 * fade))
+            self._draw_star(screen, tx, ty, star_size, star_color, max(1, int(cell_size * 0.03)))
+
         # Expanding rings and a pulsing center glow.
         ring1 = max(2, int(round(cell_size * (0.18 + 0.44 * progress))))
         ring2 = max(2, int(round(cell_size * (0.08 + 0.68 * progress))))
@@ -334,24 +371,33 @@ class MagicWandEffect:
         thickness = max(1, int(round(cell_size * 0.08)))
 
         ring_color = (
-            int(225 * fade),
-            int(172 * fade),
-            int(255 * fade),
+            int(205 * circle_fade),
+            int(120 * circle_fade),
+            int(255 * circle_fade),
         )
         glow_color = (
-            int(255 * fade),
-            int((220 + 35 * pulse) * fade),
-            int(255 * fade),
+            int(235 * circle_fade),
+            int((150 + 30 * pulse) * circle_fade),
+            int(255 * circle_fade),
         )
         sparkle_color = (
-            int(255 * fade),
-            int((190 + 50 * pulse) * fade),
-            int(255 * fade),
+            int(255 * circle_fade),
+            int((190 + 50 * pulse) * circle_fade),
+            int(255 * circle_fade),
         )
 
         for row, col in self.cells:
             cx = offset_x + col * cell_size + (cell_size // 2)
             cy = offset_y + row * cell_size + (cell_size // 2)
+
+            self._draw_soft_glow(
+                screen,
+                cx,
+                cy,
+                max(8, int(cell_size * (0.62 + 0.16 * pulse))),
+                (175, 96, 255),
+                165 * fade,
+            )
 
             pygame.draw.circle(screen, ring_color, (cx, cy), ring1, thickness)
             pygame.draw.circle(screen, ring_color, (cx, cy), ring2, thickness)
@@ -361,14 +407,14 @@ class MagicWandEffect:
             base_radius = max(3, int(round(cell_size * (0.18 + 0.34 * progress))))
             spark_radius = max(1, int(round(cell_size * 0.06)))
             rotation = progress * math.pi * 4.0
-            for i in range(4):
+            for i in range(2):
                 angle = rotation + i * (math.pi / 2)
                 sx = int(round(cx + math.cos(angle) * base_radius))
                 sy = int(round(cy + math.sin(angle) * base_radius))
                 pygame.draw.circle(screen, sparkle_color, (sx, sy), spark_radius)
 
         wand_size = max(28, int(cell_size * (1.55 + min(0.45, cast_span / max(1, cell_size * 10)))))
-        wand_angle = wand_theta + (math.pi * 0.35 * math.sin(progress * math.pi * 6.0))
+        wand_angle = wand_theta + (math.pi * 0.35 * math.sin(progress * math.pi * 4.0))
         self._draw_wand(screen, wand_x, wand_y, wand_size, wand_angle, fade)
 
 class MolePopEffect:

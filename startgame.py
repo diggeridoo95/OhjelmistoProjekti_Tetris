@@ -118,6 +118,48 @@ class StartScreen:
 		help_rect = help_surface.get_rect(center=(panel_rect.centerx, panel_rect.bottom - max(28, panel_height // 12)))
 		screen.blit(help_surface, help_rect)
 
+	def _draw_arrow_symbol(self, screen, rect, direction, color):
+		cx = rect.centerx
+		cy = rect.centery
+		shaft = max(2, min(rect.width, rect.height) // 8)
+		head = max(5, min(rect.width, rect.height) // 4)
+
+		if direction == "left":
+			pygame.draw.line(screen, color, (cx + head // 2, cy), (cx - head // 2, cy), shaft)
+			pygame.draw.polygon(screen, color, [(cx - head, cy), (cx - head // 4, cy - head // 2), (cx - head // 4, cy + head // 2)])
+		elif direction == "right":
+			pygame.draw.line(screen, color, (cx - head // 2, cy), (cx + head // 2, cy), shaft)
+			pygame.draw.polygon(screen, color, [(cx + head, cy), (cx + head // 4, cy - head // 2), (cx + head // 4, cy + head // 2)])
+		elif direction == "up":
+			pygame.draw.line(screen, color, (cx, cy + head // 2), (cx, cy - head // 2), shaft)
+			pygame.draw.polygon(screen, color, [(cx, cy - head), (cx - head // 2, cy - head // 4), (cx + head // 2, cy - head // 4)])
+		elif direction == "down":
+			pygame.draw.line(screen, color, (cx, cy - head // 2), (cx, cy + head // 2), shaft)
+			pygame.draw.polygon(screen, color, [(cx, cy + head), (cx - head // 2, cy + head // 4), (cx + head // 2, cy + head // 4)])
+
+	def _draw_keycap(self, screen, label, center, width, height, font):
+		key_rect = pygame.Rect(0, 0, width, height)
+		key_rect.center = center
+
+		shadow_rect = key_rect.move(2, 2)
+		pygame.draw.rect(screen, (115, 130, 170), shadow_rect, 0, max(6, width // 7))
+		pygame.draw.rect(screen, (252, 254, 255), key_rect, 0, max(6, width // 7))
+		pygame.draw.rect(screen, (132, 158, 210), key_rect, max(1, self.screen_width // 420), max(6, width // 7))
+
+		arrow_map = {
+			"LEFT": "left",
+			"RIGHT": "right",
+			"UP": "up",
+			"DOWN": "down",
+		}
+		if label in arrow_map:
+			self._draw_arrow_symbol(screen, key_rect, arrow_map[label], Colors.dark_blue)
+			return
+
+		label_surface = font.render(label, True, Colors.dark_blue)
+		label_rect = label_surface.get_rect(center=key_rect.center)
+		screen.blit(label_surface, label_rect)
+
 	def _draw_controls_overlay(self, screen, option_font):
 		panel_width = max(420, self.screen_width // 2)
 		panel_height = max(420, int(self.screen_height * 0.65))
@@ -128,27 +170,39 @@ class StartScreen:
 		screen.blit(header_surface, header_rect)
 
 		line_font = pygame.font.Font(None, max(24, self.screen_width // 40))
+		key_font = pygame.font.Font(None, max(20, self.screen_width // 48))
 		controls_rows = [
-			("Left / Right", "Move"),
-			("Up", "Rotate"),
-			("Down", "Soft Drop"),
-			("Space", "Hard Drop"),
-			("A", "Bomb Ability"),
-			("S", "Magic Wand"),
-			("P", "Pause"),
+			(["LEFT", "RIGHT"], "Move"),
+			(["UP"], "Rotate"),
+			(["DOWN"], "Soft Drop"),
+			(["SPACE"], "Hard Drop"),
+			(["A"], "Bomb Ability"),
+			(["S"], "Magic Wand"),
+			(["P"], "Pause"),
 		]
 
 		line_start_y = header_rect.bottom + max(24, panel_height // 14)
 		line_spacing = max(36, panel_height // 11)
-		left_x = panel_rect.x + 40
+		left_x = panel_rect.x + max(36, panel_width // 12)
 		right_x = panel_rect.right - 40
+		key_height = max(26, panel_height // 13)
+		key_gap = max(8, panel_width // 50)
 
-		for index, (control_text, action_text) in enumerate(controls_rows):
+		for index, (key_labels, action_text) in enumerate(controls_rows):
 			y_pos = line_start_y + (index * line_spacing)
 
-			control_surface = line_font.render(control_text, True, (18, 28, 78))
-			control_rect = control_surface.get_rect(midleft=(left_x, y_pos))
-			screen.blit(control_surface, control_rect)
+			key_widths = []
+			for key_label in key_labels:
+				if key_label == "SPACE":
+					key_widths.append(max(92, panel_width // 4))
+				else:
+					key_widths.append(max(54, panel_width // 8))
+
+			key_x = left_x
+			for key_label, key_width in zip(key_labels, key_widths):
+				key_center = (key_x + key_width // 2, y_pos)
+				self._draw_keycap(screen, key_label, key_center, key_width, key_height, key_font)
+				key_x += key_width + key_gap
 
 			action_surface = line_font.render(action_text, True, (18, 28, 78))
 			action_rect = action_surface.get_rect(midright=(right_x, y_pos))
