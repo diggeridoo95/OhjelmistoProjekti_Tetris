@@ -184,6 +184,7 @@ class Game:
 	def spawn_current_block(self, block):
 		"""Spawns a block using inversion-aware spawn rules."""
 		if self.inversion.apply_pending_activation(self.grid):
+			self.start_global_event_cooldown()
 			self.lock_flash_effect.remap_vertical_flip(self.grid.num_rows)
 			self.bomb_explosion_effect.remap_vertical_flip(self.grid.num_rows)
 			self.inversion_flash_effect.trigger()
@@ -298,17 +299,25 @@ class Game:
 				self.has_magic_wand = True
 
 		# Let inversion controller track lock count and auto-disable event
-		if self.inversion.on_block_locked(self.grid):
-			self.lock_flash_effect.remap_vertical_flip(self.grid.num_rows)
-			self.bomb_explosion_effect.remap_vertical_flip(self.grid.num_rows)
-			self.inversion_flash_effect.trigger()  # Flash when inversion deactivates
+		inversion_ended = self.inversion.on_block_locked(self.grid)
 
 		self.current_block = self.spawn_current_block(self.next_block)
 		self.next_block = self.get_next_block()
-		
+
 		if self.block_fits() == False:
+			if inversion_ended:
+				self.inversion.restore_visual_inversion(self.grid)
+				self.lock_flash_effect.remap_vertical_flip(self.grid.num_rows)
+				self.bomb_explosion_effect.remap_vertical_flip(self.grid.num_rows)
+
 			self.game_over = True
 			sfx.play_game_over()
+		else:
+			if inversion_ended:
+				self.lock_flash_effect.remap_vertical_flip(self.grid.num_rows)
+				self.bomb_explosion_effect.remap_vertical_flip(self.grid.num_rows)
+				self.inversion_flash_effect.trigger()
+
 	
 	def get_next_block(self):
 		"""Get a regular random next block. Bomb is injected explicitly when ability is used."""
@@ -429,8 +438,9 @@ class Game:
 	def block_fits(self):
 		tiles = self.current_block.get_cell_positions()
 		for tile in tiles:
-			if self.grid.is_empty(tile.row, tile.column) == False:
-				return False
+			if self.grid.is_inside(tile.row, tile.column):
+				if self.grid.is_empty(tile.row, tile.column) == False:
+					return False
 		return True
 
 	def rotate(self):
@@ -446,11 +456,14 @@ class Game:
 		for tile in tiles:
 			if tile.column < 0 or tile.column >= self.grid.num_cols:
 				return False
-			# Inverted: blocks can't go above row 0 (spawn area flipped)
-			if self.inversion.inverted_gravity and tile.row < 0:
-				return False
-			if tile.row >= self.grid.num_rows:
-				return False
+			# Inverted tilassa palikka saa olla aluksi kentän alapuolella
+			if self.inversion.inverted_gravity:
+				if tile.row < 0:
+					return False
+			else:
+				# Normaalitilassa palikka saa olla aluksi kentän yläpuolella
+				if tile.row >= self.grid.num_rows:
+					return False
 		return True
 	
 	def draw(self, screen, hide_blocks=False):
