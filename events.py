@@ -87,7 +87,9 @@ class MoleEvent(LevelEvent):
                 col = removal['col']
 
                 if game.grid.is_inside(row, col):
+                    old_value = game.grid.grid[row][col]
                     game.grid.grid[row][col] = 0
+                    game.mole_pop_effect.start_cell_fade(row, col, old_value)
 
             else:
                 remaining.append(removal)

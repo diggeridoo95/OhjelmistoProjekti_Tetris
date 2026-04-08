@@ -377,6 +377,7 @@ class MolePopEffect:
     def __init__(self, duration_ms=1800):
         self.duration_ms = max(600, duration_ms)
         self.pops = []
+        self.fading_cells = []
 
         base_dir = os.path.dirname(__file__)
         mole_face_path = os.path.join(base_dir, "pictures", "mole_face.png")
@@ -459,6 +460,19 @@ class MolePopEffect:
 
     def clear(self):
         self.pops = []
+        self.fading_cells = []
+
+    def start_cell_fade(self, row, col, cell_value, duration_ms=220):
+        if cell_value == 0:
+            return
+        
+        self.fading_cells.append({
+            "row": int(row),
+            "col": int(col),
+            "cell_value": int(cell_value),
+            "start": pygame.time.get_ticks(),
+            "duration": max(80, duration_ms),
+        })
 
     def _get_visible_amount(self, progress):
         mole_start = self.hole_open_portion + self.mole_delay_portion
@@ -502,14 +516,14 @@ class MolePopEffect:
         paw_color = (132, 96, 62)
         claw_color = (92, 72, 52)
 
-        scale = max(0.75, visibility)
+        paw_scale = max(0.75, visibility)
 
-        paw_w = max(7, int(cell_size * 0.17 * scale))
-        paw_h = max(10, int(cell_size * 0.24 * scale))
+        paw_w = max(7, int(cell_size * 0.17 * paw_scale))
+        paw_h = max(10, int(cell_size * 0.24 * paw_scale))
 
         # Place paws near the top edge of the mound, left and right of center.
         center_x = mound_x + mound_w // 2
-        paw_y = hole_y + int(cell_size * 0.13)
+        paw_y = hole_y + int(cell_size * 0.13 * paw_scale)
 
         offset = int(cell_size * 0.10)
 
@@ -571,11 +585,56 @@ class MolePopEffect:
             pygame.draw.circle(screen, color, (int(px), int(py)), radius)
         pop["particles"] = alive_particles
 
+    def _draw_fading_cells(self, screen, cell_size, offset_x, offset_y, now):
+        if not self.fading_cells:
+            return
+        
+        colors = Colors.get_cell_colors()
+        alive = []
+
+        for fade in self.fading_cells:
+            elapsed = now - fade["start"]
+            duration = fade["duration"]
+
+            if elapsed >= duration:
+                continue
+            
+            row = fade.get("row")
+            col = fade.get("col")
+            cell_value = fade.get("cell_value", 0)
+
+            if row is None or col is None or cell_value == 0:
+                continue
+
+            alive.append(fade)
+
+            progress = elapsed / duration
+            alpha = int(255 * (1.0 - progress))
+            shrink = 1.0 - (0.12 * progress)
+
+
+            x = offset_x + col * cell_size
+            y = offset_y + row * cell_size
+
+            ghost_size = max(2, int(cell_size - 1) * shrink)
+            inset = ((cell_size - 1) - ghost_size) // 2
+
+            ghost = pygame.Surface((ghost_size, ghost_size), pygame.SRCALPHA)
+            color = colors[cell_value]
+            ghost.fill((color[0], color[1], color[2], alpha))
+
+            screen.blit(ghost, (x + inset, y + inset))
+
+        self.fading_cells = alive
+
     def draw(self, screen, cell_size, offset_x, offset_y):
-        if not self.pops:
+
+
+        if not self.pops and not self.fading_cells:
             return
 
         now = pygame.time.get_ticks()
+        self._draw_fading_cells(screen, cell_size, offset_x, offset_y, now)
         active_pops = []
 
         for pop in self.pops:
@@ -591,6 +650,7 @@ class MolePopEffect:
             visible_amount = self._get_visible_amount(progress)
             paw_visibility = self._get_paw_visibility(progress)
             mole_phase_progress = self._get_mole_phase_progress(progress)
+            scale = 1.15
 
             # Keep spraying dirt briefly while the mole is digging upward
             spray_until = self.hole_open_portion + self.mole_delay_portion + (self.rise_portion * 0.85)
@@ -610,12 +670,12 @@ class MolePopEffect:
             y = offset_y + row * cell_size
 
             # Hole near bottom of cell
-            max_hole_w = int(cell_size * 0.90)
-            max_hole_h = max(4, int(cell_size * 0.30))
+            max_hole_w = int(cell_size * 0.90 * scale)
+            max_hole_h = max(4, int(cell_size * 0.30 * scale))
             hole_w = max(2, int(max_hole_w * (0.35 + 0.65 * hole_openness)))
             hole_h = max(2, int(max_hole_h * hole_openness))
             hole_x = x + (cell_size - hole_w) // 2
-            hole_y = y + int(cell_size * (0.55 + (1.0 - hole_openness) * 0.08))
+            hole_y = y + int(cell_size * (0.40 + (1.0 - hole_openness) * 0.08) * scale)
 
             # Dirt mound
             mound_w = max(hole_w + 4, int((max_hole_w * 1.35) * (0.45 + 0.55 * hole_openness)))
@@ -644,8 +704,8 @@ class MolePopEffect:
             )
 
             # Mole body
-            mole_w = int(cell_size * 0.72)
-            max_mole_h = int(cell_size * 0.88)
+            mole_w = int(cell_size * 0.72 * scale)
+            max_mole_h = int(cell_size * 0.88 * scale)
             mole_h = max(1, int(max_mole_h * visible_amount))
 
             # Start slightly lower for a "digging up" feel
@@ -678,7 +738,7 @@ class MolePopEffect:
             pygame.draw.ellipse(screen, head_color, head_rect)
 
             # Gentle bob while visible
-            bob = int(math.sin(mole_phase_progress * math.pi * 5.0) * max(1, cell_size * 0.03))
+            bob = int(math.sin(mole_phase_progress * math.pi * 5.0) * max(1, cell_size * 0.03 * scale))
             draw_face_y = mole_y + bob
 
             if mole_h > 10:
