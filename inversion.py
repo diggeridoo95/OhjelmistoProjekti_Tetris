@@ -70,9 +70,12 @@ class InversionController:
         if self.inverted_gravity:
             cells = block.get_cell_positions()
             max_row = max(cell.row for cell in cells)
-            shift_rows = (grid.num_rows - 1) - max_row
+            shift_rows = grid.num_rows - max_row
             block.move(shift_rows, 0)
         else:
             block.move(-1, 0)
         return block
+    
+    def restore_visual_inversion(self,grid):
+        self.flip_grid_vertically(grid)
 
