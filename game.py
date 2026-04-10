@@ -61,7 +61,7 @@ class Game:
 		self.has_magic_wand = False  # Flag indicating player owns magic wand ability
 		self.last_block_position = None  # Track position of last locked block for bomb explosion
 
-		self.apply_level(1)  # Start at level 2 for testing purposes
+		#self.apply_level(1)  # Start at level 2 for testing purposes
 							#Can be adjusted for further testing
 
 	def get_level_score(self):
@@ -148,6 +148,7 @@ class Game:
 		if self.current_level_index >= len(self.levels) - 1:
 			self.game_won = True
 			self.game_over = True
+			sfx.play_game_win()
 			return True
 
 		self.start_level_transition(self.current_level_index + 1)
@@ -227,15 +228,17 @@ class Game:
 				step,
 				self.current_block.colors[self.current_block.id],
 			)
-			sfx.play_hard_drop()
-		self.lock_block()
+		sfx.play_hard_drop()
+		self.lock_block(is_hard_drop=True)
 
 		
 		self.update_score(0, 2)
 
-	def lock_block(self):
+	def lock_block(self, is_hard_drop=False):
 		tiles = self.current_block.get_cell_positions()
 		flash_cells = []
+		if not is_hard_drop:
+			sfx.play_lock_block()
 		
 		# Check if current block is a bomb block - if so, trigger explosion
 		if self.current_block.id == 8:  # BombBlock has id 8
@@ -569,6 +572,7 @@ class Game:
 			self.time_left = 0
 			if self.try_advance_level() == False:
 				self.game_over = True
+				sfx.play_game_over()
 
 	def get_time_text(self):
 		mins, secs = divmod(self.time_left, 60)

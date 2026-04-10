@@ -21,6 +21,8 @@ GAME_SOUNDS = {
 	"magic_wand": "sauva.mp3",
 	"line_clear": "clear.mp3",
 	"game_over": "gameover.mp3",
+	"game_win": "win.mp3",
+	"lock_block": "blocklock.mp3",
 }
 
 
@@ -157,6 +159,11 @@ def play_hard_drop():
 	return play(GAME_SOUNDS["hard_drop"])
 
 
+def play_lock_block():
+	"""Play the block lock sound effect."""
+	return play(GAME_SOUNDS["lock_block"])
+
+
 def play_block_turn():
 	"""Play the block rotation sound effect."""
 	return play(GAME_SOUNDS["block_turn"])
@@ -190,6 +197,10 @@ def play_line_clear():
 def play_game_over():
 	"""Play the game over sound effect."""
 	return play(GAME_SOUNDS["game_over"])
+
+def play_game_win():
+	"""Play the game win sound effect."""
+	return play(GAME_SOUNDS["game_win"])
 
 
 def play_game_sound(sound_name):

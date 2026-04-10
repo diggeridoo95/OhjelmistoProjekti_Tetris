@@ -24,7 +24,7 @@ pygame.display.set_caption("Tetris Overwhelmed")
 is_fullscreen = False
 windowed_size = (INITIAL_WIDTH, INITIAL_HEIGHT)
 music_volume = 0.40
-sfx_volume = 0.50
+sfx_volume = 0.30
 main_menu_music_file = "mainmenu.mp3"
 game_music_file = "game_music.mp3"
 
