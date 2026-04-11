@@ -20,8 +20,7 @@ class Game:
 		self.blocks = [IBlock(), JBlock(), LBlock(), OBlock(), SBlock(), TBlock(), ZBlock()]
 		
 		# pelikentän peilauksen määritykset 
-		#JOS HALUAT TESTATA ILMAN PEILAUSTA, ASETU TÄMÄN ARVOKSI 999
-		self.inversion = InversionController(interval_seconds=30, lock_target=3) 
+		self.inversion = InversionController(lock_target=3) 
 		
 		self.current_block = self.spawn_current_block(self.get_random_block())
 		self.next_block = self.get_random_block()
@@ -178,10 +177,6 @@ class Game:
 		"""Returns gravity direction from inversion controller."""
 		return self.inversion.get_gravity_step()
 
-	def update_inversion_event_timer(self):
-		"""Updates inversion event timer; inversion is applied at next spawn."""
-		self.inversion.update_timer()
-
 	def spawn_current_block(self, block):
 		"""Spawns a block using inversion-aware spawn rules."""
 		if self.inversion.apply_pending_activation(self.grid):
@@ -295,7 +290,7 @@ class Game:
 			#self.lock_flash_effect.clear() #jos ei haluta välähdystä silloin, kun rivi poistuu
 			self.update_score(rows_cleared, 0)
 			# Grant bomb ability on Tetris (4 row clear)
-			if rows_cleared == 1 or rows_cleared == 2 or rows_cleared == 3 or rows_cleared == 4:
+			if rows_cleared == 4:
 				self.has_bomb = True
 			# Grant magic wand on 3-line clear
 			if rows_cleared == 3:
@@ -561,13 +556,11 @@ class Game:
 					pygame.draw.rect(screen, self.current_block.colors[self.current_block.id], tile_rect)
 
 	def countdown(self):
-		"""Update game timer and check for random inverted gravity event"""
+		"""Update game timer."""
 		if self.game_over or self.is_level_transitioning():
 			return
 		if self.time_left > 0:
 			self.time_left -= 1
-		# Check 40-second inverted gravity event timer
-		# self.update_inversion_event_timer()
 		if self.time_left <= 0:
 			self.time_left = 0
 			if self.try_advance_level() == False:

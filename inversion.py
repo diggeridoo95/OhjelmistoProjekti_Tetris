@@ -1,17 +1,14 @@
 class InversionController:
     """Handles timed inverted-gravity event and full-grid vertical flipping."""
 
-    def __init__(self, interval_seconds=10, lock_target=3):
-        self.interval_seconds = interval_seconds
+    def __init__(self, lock_target=3):
         self.lock_target = lock_target
         self.inverted_gravity = False
-        self.seconds_until_trigger = interval_seconds
         self.blocks_remaining = 0
         self.pending_activation = False
 
     def reset_state(self):
         self.inverted_gravity = False
-        self.seconds_until_trigger = self.interval_seconds
         self.blocks_remaining = 0
         self.pending_activation = False
 
@@ -38,16 +35,7 @@ class InversionController:
             return
         self.inverted_gravity = False
         self.blocks_remaining = 0
-        self.seconds_until_trigger = self.interval_seconds
         self.flip_grid_vertically(grid)
-
-    def update_timer(self):
-        if self.inverted_gravity or self.pending_activation:
-            return
-        self.seconds_until_trigger -= 1
-        if self.seconds_until_trigger <= 0:
-            # Delay actual inversion until next block spawn.
-            self.pending_activation = True
 
     def on_block_locked(self, grid):
         if not self.inverted_gravity:

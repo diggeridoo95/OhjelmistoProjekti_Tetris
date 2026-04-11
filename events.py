@@ -243,5 +243,6 @@ class InversionEvent(LevelEvent):
 
         game.inversion.lock_target = self.lock_target
         game.inversion.pending_activation = True
-        game.start_global_event_cooldown()
+        
+        # global cooldown siirretty game.py kohtaan, jossa kääntö oikeasti tulee näkyväksi pelissä
         self.cooldown_until_ms = now + self.cooldown_ms
